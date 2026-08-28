@@ -224,7 +224,13 @@ export class NexusGraphBuilder {
                                 const target = data[objId];
                                 if (!target || typeof target !== 'object') return [];
 
-                                // STRICT COMPONENT ISOLATION: Stop traversal if crossing into another attached Component
+                                // STRICT COMPONENT ISOLATION & BACK-REFERENCE SUPPRESSION
+                                // 1. Stop if looping back to the owner component (e.g. _Bridge_UIToAsset.ref -> Popup_Controller)
+                                if (objId === currentCompId && chain.length > 0) {
+                                    return [];
+                                }
+
+                                // 2. Stop if crossing into another attached Component on this or any node
                                 if (objId !== currentCompId && nodeAttachedCompSet.has(objId)) {
                                     return [];
                                 }
@@ -268,7 +274,7 @@ export class NexusGraphBuilder {
                             const entry = data[compId];
                             if (!entry || typeof entry !== 'object') continue;
                             const t = entry.__type__;
-                            if (!t || t.startsWith('cc.Scene') || t.startsWith('cc.PrefabInfo') || t.startsWith('cc.CompPrefabInfo') || t === 'cc.Node') {
+                            if (!t || t.startsWith('cc.') || t.startsWith('sp.') || t.startsWith('dragonBones.') || t === 'cc.Node') {
                                 continue;
                             }
 
@@ -402,19 +408,21 @@ export class NexusGraphBuilder {
                                     }
                                 }
 
-                                // 4. Fallback Semantic conventions
+                                // 4. Ground-Truth & Semantic Classification
                                 if (!isListener && !isEmitter && !isParam) {
-                                    if (rootProp.startsWith('act') || rootProp.startsWith('on') || rootProp.startsWith('evt') || rootProp.startsWith('listen')) {
-                                        isListener = true;
-                                        boundMethod = rootProp;
-                                        functionName = `${rootProp}()`;
-                                    } else if (rootProp === 'param' || rootProp === 'pool' || rootProp === 'data' || rootProp === 'hid' || rootProp === 'id' || catalog[juuid].path.includes('params')) {
+                                    const isJsonIdOrParamAsset = catalog[juuid].name.startsWith('id.') || catalog[juuid].name.startsWith('params.') || catalog[juuid].name.startsWith('config.') || catalog[juuid].path.includes('params');
+                                    const isConfigClass = className.includes('Config') || className.includes('Data') || (resolvedClass && resolvedClass.superClasses.some(s => s.includes('Config') || s.includes('Pool') || s.includes('Data')));
+
+                                    if (isJsonIdOrParamAsset || isConfigClass || ['target', 'default', 'keys', 'data', 'hid', 'lid', 'ids', 'param', 'pool', 'sid', 'bridge'].includes(rootProp)) {
                                         isParam = true;
                                         functionName = rootProp;
-                                    } else {
+                                    } else if (rootProp.startsWith('act') || rootProp.startsWith('on') || rootProp.startsWith('evt') || rootProp.startsWith('listen')) {
                                         isListener = true;
                                         boundMethod = rootProp;
                                         functionName = `${rootProp}()`;
+                                    } else {
+                                        isParam = true;
+                                        functionName = rootProp;
                                     }
                                 }
 

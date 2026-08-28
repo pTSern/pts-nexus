@@ -121,7 +121,7 @@ export class TypeRegistry {
         const defaultCcclass = ccclassRegex.exec(content);
         const defaultCcclassName = defaultCcclass ? defaultCcclass[1] : undefined;
 
-        const classRegex = /(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z0-9_]+)(?:\s+extends\s+([A-Za-z0-9_\.<>]+))?/g;
+        const classRegex = /(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z0-9_]+)(?:<[^>]+>)?(?:\s+extends\s+([A-Za-z0-9_\.<>]+))?/g;
         let cm: RegExpExecArray | null;
 
         while ((cm = classRegex.exec(content)) !== null) {

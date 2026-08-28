@@ -543,8 +543,8 @@
                 // 2. Emitter Nodes & Inbound Edges (Track all connected event hubs)
                 item.emitters.forEach((emit, idx) => {
                     const shortNode = getShortNode(emit.node);
-                    const emitIdSuffix = emit.compId !== undefined ? emit.compId : (emit.trigger || idx);
-                    const emitNodeId = "emit_" + emit.file + "_" + emit.node + "_" + emit.className + "_" + emitIdSuffix;
+                    const emitKey = (emit.property || '') + "_" + (emit.functionName || emit.trigger || idx);
+                    const emitNodeId = "emit_" + emit.file + "_" + emit.node + "_" + emit.className + "_" + (emit.compId !== undefined ? emit.compId + "_" : "") + emitKey;
                     recordSameNode(emit.file, emit.node, emitNodeId);
 
                     if (!nodeMap.has(emitNodeId)) {
@@ -597,14 +597,16 @@
                 // 3. Listener Nodes & Outbound Edges (Track all connected event hubs)
                 item.listeners.forEach((list, idx) => {
                     const shortNode = getShortNode(list.node);
-                    const listIdSuffix = list.compId !== undefined ? list.compId : (list.property || idx);
-                    const listNodeId = "list_" + list.file + "_" + list.node + "_" + list.className + "_" + listIdSuffix;
+                    const rawMethod = list.boundMethod || list.functionName || list.property || 'handle';
+                    const displayMethod = (rawMethod === '_actCloseApi' || rawMethod === '_actClose') ? 'close' : rawMethod.replace(/\(\)$/, '');
+                    const listKey = (list.property || '') + "_" + rawMethod;
+                    const listNodeId = "list_" + list.file + "_" + list.node + "_" + list.className + "_" + (list.compId !== undefined ? list.compId + "_" : "") + listKey;
                     recordSameNode(list.file, list.node, listNodeId);
 
                     if (!nodeMap.has(listNodeId)) {
                         const listNode = {
                             id: listNodeId,
-                            label: `${shortNode} · ${list.className}\n🎧 ${list.boundMethod || list.functionName || list.property}()`,
+                            label: `${shortNode} · ${list.className}\n🎧 ${displayMethod}()`,
                             shape: 'box',
                             margin: 7,
                             font: { color: '#fdf4ff', size: 10.5, face: 'sans-serif', align: 'center' },
@@ -651,8 +653,7 @@
                 // 4. Param Holder Nodes & Dashed Edges
                 item.params.forEach((param, idx) => {
                     const shortNode = getShortNode(param.node);
-                    const paramIdSuffix = param.compId !== undefined ? param.compId : (param.property || idx);
-                    const paramNodeId = "param_" + param.file + "_" + param.node + "_" + param.className + "_" + paramIdSuffix;
+                    const paramNodeId = "param_" + param.file + "_" + param.node + "_" + param.className + "_" + (param.compId !== undefined ? param.compId + "_" : "") + param.property;
                     recordSameNode(param.file, param.node, paramNodeId);
 
                     if (!nodeMap.has(paramNodeId)) {
@@ -1240,22 +1241,24 @@
             const el = document.createElement('div');
             el.className = "group p-3 rounded-lg bg-purple-950/40 hover:bg-purple-900/50 border border-purple-800/60 hover:border-purple-500/80 space-y-1.5 cursor-pointer transition-all shadow-sm";
             el.title = "Double-click to focus on this Listener node in the graph";
-            el.innerHTML = `
+                const rawMethod = l.boundMethod || l.property || 'handle';
+                const displayMethod = (rawMethod === '_actCloseApi' || rawMethod === '_actClose') ? 'close' : rawMethod.replace(/\(\)$/, '');
+                el.innerHTML = `
                 <div class="flex items-center justify-between text-xs">
                     <span class="font-bold text-purple-300 group-hover:text-purple-200 flex items-center gap-1">
-                        ${l.node}
+                        \${l.node}
                         <span class="text-[9px] font-normal text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">(dbl-click to focus)</span>
                     </span>
                     <div class="flex items-center gap-1">
-                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200 font-mono">${l.className}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200 font-mono">\${l.className}</span>
                         <button class="mini-focus-btn p-1 rounded bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white transition-all" title="Focus file in Cocos Creator">
                             <i class="ph-bold ph-crosshair text-xs"></i>
                         </button>
                     </div>
                 </div>
-                <div class="text-xs text-slate-200 font-mono">🎧 ${l.boundMethod || l.property}()</div>
-                <div class="text-[11px] text-slate-400 break-all">${l.file}</div>
-                ${l.methodSignature ? `<div class="text-[10px] text-purple-300 font-mono bg-purple-950/80 p-1 rounded border border-purple-800/40">Signature: (${l.methodSignature})</div>` : ''}
+                <div class="text-xs text-slate-200 font-mono">🎧 \${displayMethod}() \${l.property ? \`<span class="text-[10px] text-purple-400">[\${l.property}]</span>\` : ''}</div>
+                <div class="text-[11px] text-slate-400 break-all">\${l.file}</div>
+                \${l.methodSignature ? \`<div class="text-[10px] text-purple-300 font-mono bg-purple-950/80 p-1 rounded border border-purple-800/40">Signature: (\${l.methodSignature})</div>\` : ''}
             `;
 
             // Single click inspects if found, double click zooms in
