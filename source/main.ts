@@ -19,7 +19,21 @@ export const methods: { [key: string]: (...args: any[]) => any } = {
         const graph = await NexusGraphBuilder.build(projectPath);
         return graph;
     },
+    async 'scan-network'() {
+        const projectPath = Editor.Project.path;
+        const graph = await NexusGraphBuilder.build(projectPath);
+        return graph;
+    },
     async generateHtml(customOutputPath?: string) {
+        const projectPath = Editor.Project.path;
+        const graph = await NexusGraphBuilder.build(projectPath);
+        const html = generateVisualizerHtml(graph);
+        const outPath = customOutputPath || path.join(projectPath, 'json_event_network.html');
+        await fs.promises.writeFile(outPath, html, 'utf8');
+        console.log(`[${pkg.name}] Successfully generated HTML visualizer at: ${outPath}`);
+        return { success: true, path: outPath };
+    },
+    async 'generate-html'(customOutputPath?: string) {
         const projectPath = Editor.Project.path;
         const graph = await NexusGraphBuilder.build(projectPath);
         const html = generateVisualizerHtml(graph);

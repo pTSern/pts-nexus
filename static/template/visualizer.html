@@ -55,8 +55,8 @@
 <body class="h-screen flex flex-col antialiased select-none">
 
     <!-- Top Navigation Header -->
-    <header class="h-16 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-5 z-20 shrink-0 gap-3">
-        <!-- Left: Logo, Title & Color Legend -->
+    <header class="h-16 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-4 z-20 shrink-0 gap-3">
+        <!-- Left: Logo, Title, Action Buttons (Refresh & Export) & Color Legend -->
         <div class="flex items-center space-x-3 shrink-0">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-sky-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-sky-500/20">
                 <i class="ph-bold ph-git-merge text-white text-xl"></i>
@@ -68,8 +68,20 @@
                 <p class="text-xs text-slate-400">pEngine.Json Event Bus & Parameter Registry</p>
             </div>
 
-            <!-- Color Legend (Relocated to Top Header near Title) -->
-            <div class="hidden lg:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs font-medium ml-2 shadow-inner">
+            <!-- Action Buttons near Title: Refresh Network & Export HTML -->
+            <div class="flex items-center space-x-1.5 ml-2 pl-2 border-l border-slate-800">
+                <button id="btn-refresh-network" title="Re-scan project and refresh event network" class="px-2.5 py-1.5 rounded-lg bg-sky-950 hover:bg-sky-900 active:bg-sky-950 text-sky-300 hover:text-white border border-sky-700/60 shadow-sm transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+                    <i id="refresh-icon" class="ph-bold ph-arrows-clockwise text-sm text-sky-400"></i>
+                    <span>Refresh</span>
+                </button>
+                <button id="btn-export-html" title="Export standalone interactive HTML visualizer (json_event_network.html)" class="px-2.5 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 active:bg-emerald-950 text-emerald-300 hover:text-white border border-emerald-700/60 shadow-sm transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+                    <i class="ph-bold ph-file-html text-sm text-emerald-400"></i>
+                    <span>Export HTML</span>
+                </button>
+            </div>
+
+            <!-- Color Legend (Beside Title and Actions) -->
+            <div class="hidden xl:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs font-medium ml-1 shadow-inner">
                 <div class="flex items-center gap-1.5">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
                     <span class="text-slate-300">Emitter</span>
@@ -90,7 +102,7 @@
         </div>
 
         <!-- Center: Search Bar -->
-        <div class="flex items-center space-x-4 flex-1 max-w-lg mx-2">
+        <div class="flex items-center space-x-4 flex-1 max-w-md mx-2">
             <div class="relative w-full">
                 <i class="ph ph-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-base"></i>
                 <input id="search-input" type="text" placeholder="Search event, component, node, or trigger..." 
@@ -404,7 +416,7 @@
                 if (hideUnconnected) {
                     const totalConnections = item.emitters.length + item.listeners.length + item.params.length;
                     if (totalConnections === 0) {
-                        return; // Skip orphan nodes!
+                        return;
                     }
                 }
 
@@ -855,7 +867,6 @@
                 if (totalInvokedListeners === 0) {
                     listenersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No active listener handlers connected to the triggered event(s)</div>';
                 } else if (connectedHubs.length === 1) {
-                    // Clean flat list for single hub
                     connectedHubs[0].listeners.forEach(l => {
                         listenersList.appendChild(renderListenerCard(l));
                     });
@@ -932,12 +943,10 @@
                 if (totalUpstreamEmitters === 0) {
                     emittersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No direct emitters bound to the subscribed event(s) yet</div>';
                 } else if (connectedHubs.length === 1) {
-                    // Clean flat list for single hub
                     connectedHubs[0].emitters.forEach(e => {
                         emittersList.appendChild(renderEmitterCard(e));
                     });
                 } else {
-                    // Grouped by hub for multiple hubs
                     connectedHubs.forEach(hub => {
                         if (hub.emitters.length > 0) {
                             const groupHeader = document.createElement('div');
@@ -1178,6 +1187,39 @@
             initNetwork();
         });
 
+        // Refresh Network Button Action
+        document.getElementById('btn-refresh-network').addEventListener('click', () => {
+            const icon = document.getElementById('refresh-icon');
+            if (icon) icon.classList.add('animate-spin');
+
+            window.parent.postMessage({ type: 'PTS_NEXUS_REFRESH_NETWORK' }, '*');
+
+            setTimeout(() => {
+                if (icon) icon.classList.remove('animate-spin');
+                renderDynamicDomainFilters();
+                populateEventList();
+                initNetwork();
+            }, 800);
+        });
+
+        // Export HTML Button Action
+        document.getElementById('btn-export-html').addEventListener('click', () => {
+            window.parent.postMessage({ type: 'PTS_NEXUS_EXPORT_HTML' }, '*');
+
+            try {
+                const fullHtml = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+                const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+                const downloadUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = 'json_event_network.html';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl);
+            } catch (e) {}
+        });
+
         // Focus in Cocos Button
         document.getElementById('btn-focus-in-cocos').addEventListener('click', () => {
             if (currentInspectTarget) {
@@ -1217,7 +1259,7 @@
             leftSidebar.classList.toggle('-ml-80');
         });
 
-        // Keybindings: `+` (zoom in), `-` (zoom out), `Space` (pause physics)
+        // Keybindings: `+` (zoom in), `-` (zoom out), `Space` (pause physics), `R` (refresh)
         window.addEventListener('keydown', (e) => {
             if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
                 return;
@@ -1234,6 +1276,9 @@
             } else if (e.code === 'Space') {
                 e.preventDefault();
                 togglePhysics();
+            } else if ((e.key === 'r' || e.key === 'R') && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                document.getElementById('btn-refresh-network').click();
             } else if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
                 visNetwork.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
