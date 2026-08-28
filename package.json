@@ -1,0 +1,57 @@
+{
+    "package_version": 2,
+    "name": "pts-nexus",
+    "version": "1.0.0",
+    "author": "pTSern",
+    "editor": ">=3.8.0",
+    "description": "pEngine.Json Event & Param Nexus Network Visualizer for Cocos Creator",
+    "main": "./bootstrap.js",
+    "scripts": {
+        "build": "tsc",
+        "watch": "tsc -w"
+    },
+    "devDependencies": {
+        "@cocos/creator-types": "^3.8.0",
+        "@types/node": "^18.17.1",
+        "typescript": "^5.8.2"
+    },
+    "panels": {
+        "default": {
+            "title": "pTS Event Nexus",
+            "type": "dockable",
+            "main": "dist/panel.js",
+            "size": {
+                "min-width": 850,
+                "min-height": 550,
+                "width": 1100,
+                "height": 700
+            }
+        }
+    },
+    "contributions": {
+        "messages": {
+            "open-panel": {
+                "methods": [
+                    "openPanel"
+                ]
+            },
+            "scan-network": {
+                "methods": [
+                    "scanNetwork"
+                ]
+            },
+            "generate-html": {
+                "methods": [
+                    "generateHtml"
+                ]
+            }
+        },
+        "menu": [
+            {
+                "path": "i18n:menu.extension/pTS Nexus",
+                "label": "Open Event Nexus Graph",
+                "message": "open-panel"
+            }
+        ]
+    }
+}

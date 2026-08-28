@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KingdomMatch - JsonAsset Event Nexus</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vis.js Network CDN -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <!-- Phosphor Icons CDN -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow: hidden;
+        }
+        #network-canvas {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-color: #0b0f19;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        .n8n-card {
+            backdrop-filter: blur(12px);
+            background: rgba(30, 41, 59, 0.85);
+            border: 1px solid rgba(71, 85, 105, 0.4);
+        }
+        .filter-container::-webkit-scrollbar {
+            height: 4px;
+        }
+        .filter-container::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5);
+        }
+        .filter-container::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col antialiased select-none">
+
+    <!-- Top Navigation Header -->
+    <header class="h-16 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-5 z-20 shrink-0 gap-3">
+        <!-- Left: Logo, Title & Color Legend -->
+        <div class="flex items-center space-x-3 shrink-0">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-sky-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-sky-500/20">
+                <i class="ph-bold ph-git-merge text-white text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base tracking-wide text-white flex items-center gap-2">
+                    pTS Event Nexus <span class="text-xs px-2 py-0.5 rounded-full bg-sky-950 text-sky-400 border border-sky-800 font-mono">Visualizer</span>
+                </h1>
+                <p class="text-xs text-slate-400">pEngine.Json Event Bus & Parameter Registry</p>
+            </div>
+
+            <!-- Color Legend (Relocated to Top Header near Title) -->
+            <div class="hidden lg:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs font-medium ml-2 shadow-inner">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
+                    <span class="text-slate-300">Emitter</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-md bg-sky-500 shadow-sm shadow-sky-500/50"></span>
+                    <span class="text-slate-300">Event Hub</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-fuchsia-500 shadow-sm shadow-fuchsia-500/50"></span>
+                    <span class="text-slate-300">Listener</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-md bg-amber-500 shadow-sm shadow-amber-500/50"></span>
+                    <span class="text-slate-300">Param</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: Search Bar -->
+        <div class="flex items-center space-x-4 flex-1 max-w-lg mx-2">
+            <div class="relative w-full">
+                <i class="ph ph-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-base"></i>
+                <input id="search-input" type="text" placeholder="Search event, component, node, or trigger..." 
+                    class="w-full bg-slate-800/80 border border-slate-700 text-sm rounded-lg pl-9 pr-8 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all">
+                <button id="clear-search" class="hidden absolute right-2.5 top-2.5 text-slate-400 hover:text-white">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Right: Action & Toggle Buttons -->
+        <div class="flex items-center space-x-1.5 shrink-0">
+            <!-- HIDE UNCONNECTED / ORPHAN TOGGLE -->
+            <button id="btn-toggle-unconnected" title="Hide Unconnected / Orphan Events" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-1.5 text-xs">
+                <i id="unconnected-icon" class="ph-bold ph-funnel text-sm text-slate-400"></i>
+                <span id="unconnected-label" class="hidden sm:inline">Active Wiring Only</span>
+            </button>
+
+            <!-- MOTION TOGGLE -->
+            <button id="btn-toggle-physics" title="Pause / Freeze Animation (Right-Click Canvas or Space)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-1.5 text-xs">
+                <i id="physics-icon" class="ph-bold ph-pause text-sm text-amber-400"></i>
+                <span class="hidden xl:inline text-slate-400">Motion</span>
+            </button>
+
+            <button id="btn-zoom-in" title="Zoom In (+)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all">
+                <i class="ph-bold ph-plus text-base"></i>
+            </button>
+            <button id="btn-zoom-out" title="Zoom Out (-)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all">
+                <i class="ph-bold ph-minus text-base"></i>
+            </button>
+            <button id="btn-fit-zoom" title="Fit to Screen" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all">
+                <i class="ph ph-corners-out text-lg"></i>
+            </button>
+            <button id="btn-re-layout" title="Re-stabilize Layout" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all">
+                <i class="ph ph-arrows-clockwise text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- Left Sidebar: Event List Explorer -->
+        <aside id="left-sidebar" class="w-80 bg-slate-900/95 border-r border-slate-800 flex flex-col z-10 transition-all duration-300 shrink-0">
+            <div class="p-3.5 border-b border-slate-800 flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i class="ph ph-tree-structure text-sky-400 text-base"></i> Event Catalog (<span id="event-count">0</span>)
+                </span>
+                <span class="text-[11px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Click to inspect</span>
+            </div>
+            
+            <div id="event-list" class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                <!-- Populated via JS -->
+            </div>
+        </aside>
+
+        <!-- Center: Interactive Graph Canvas -->
+        <main class="flex-1 relative flex flex-col overflow-hidden">
+            <div id="network-canvas"></div>
+
+            <!-- Physics Status Toast Notification -->
+            <div id="physics-toast" class="hidden absolute top-5 right-5 n8n-card px-3.5 py-2 rounded-xl text-xs font-semibold z-10 shadow-2xl transition-all flex items-center gap-2 border"></div>
+
+            <!-- Top Left Sidebar Toggle Button -->
+            <div class="absolute top-5 left-5 flex flex-col gap-2 z-10">
+                <button id="toggle-sidebar-btn" class="p-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 shadow-lg text-sm flex items-center gap-1.5 transition-all">
+                    <i class="ph ph-sidebar text-base"></i> <span>Catalog</span>
+                </button>
+            </div>
+
+            <!-- Bottom Floating Filter Bar: Positioned at Bottom Center with 90% Width of Center View -->
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] pointer-events-none z-10 flex justify-center">
+                <div id="domain-filters-container" class="filter-container n8n-card p-1.5 rounded-2xl border border-slate-700/60 text-xs overflow-x-auto w-full flex items-center justify-start sm:justify-center gap-1 shadow-2xl pointer-events-auto">
+                    <!-- Dynamically populated via JS -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Sidebar: Inspector Panel -->
+        <aside id="inspector-panel" class="w-96 bg-slate-900/95 border-l border-slate-800 flex flex-col z-10 custom-scrollbar overflow-y-auto shrink-0 shadow-2xl transition-all duration-300">
+            <!-- Default Placeholder -->
+            <div id="inspector-placeholder" class="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500">
+                <div class="w-16 h-16 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-center mb-4 text-slate-400 text-2xl shadow-inner">
+                    <i class="ph ph-cursor-click"></i>
+                </div>
+                <h3 class="font-semibold text-slate-300 mb-1 text-sm">No Node Selected</h3>
+                <p class="text-xs text-slate-500 leading-relaxed space-y-1">
+                    <span>Click any node to inspect its wiring.</span><br/>
+                    <span class="text-sky-400 font-mono text-[11px]">Right-Click to Freeze/Stop motion</span><br/>
+                    <span class="text-emerald-400 font-mono text-[11px]">Double-Click to Zoom In</span> • <span class="text-slate-400 font-mono text-[11px]">+ / - to Zoom</span>
+                </p>
+            </div>
+
+            <!-- Detailed Content (Rendered dynamically) -->
+            <div id="inspector-content" class="hidden p-5 space-y-5">
+                <!-- Header -->
+                <div class="space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span id="insp-badge" class="px-2 py-0.5 rounded text-[11px] font-semibold tracking-wide uppercase border">EVENT HUB</span>
+                        <span id="insp-domain" class="text-xs text-slate-400 font-medium">Domain</span>
+                    </div>
+                    
+                    <h2 id="insp-title" class="text-base font-bold text-white break-words"></h2>
+                    
+                    <!-- FOCUS IN COCOS CREATOR BUTTON -->
+                    <button id="btn-focus-in-cocos" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-semibold shadow-lg shadow-sky-600/30 transition-all cursor-pointer border border-sky-400/40">
+                        <i class="ph-bold ph-crosshair text-sm"></i>
+                        <span id="btn-focus-label">Focus in Cocos Creator</span>
+                    </button>
+
+                    <!-- Meta details box -->
+                    <div id="insp-meta-box" class="space-y-1.5 p-3 rounded-lg bg-slate-800/70 border border-slate-700/60 text-xs">
+                        <div id="insp-path-row" class="font-mono text-slate-300 break-all select-text"></div>
+                        <div id="insp-detail-row" class="font-mono text-slate-400 break-all select-text"></div>
+                        <div id="insp-uuid-row" class="text-[11px] font-mono text-slate-500 select-text"></div>
+                    </div>
+
+                    <!-- Connected Event Hubs Section (Supports Multiple Connected Hubs) -->
+                    <div id="insp-connected-hubs-section" class="hidden space-y-2">
+                        <div class="text-[11px] font-semibold uppercase tracking-wider text-sky-400 flex items-center justify-between">
+                            <span class="flex items-center gap-1"><i class="ph-bold ph-git-fork"></i> Connected Event Hubs (<span id="insp-hubs-count">0</span>)</span>
+                        </div>
+                        <div id="insp-connected-hubs-list" class="space-y-1.5">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Emitters Section -->
+                <div id="insp-emitters-section" class="space-y-2.5">
+                    <h3 id="insp-emitters-title" class="text-xs font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                        <i class="ph-bold ph-paper-plane-tilt"></i> <span id="insp-emitters-title-text">Triggered By Emitters</span> (<span id="insp-emitters-count">0</span>)
+                    </h3>
+                    <div id="insp-emitters-list" class="space-y-2"></div>
+                </div>
+
+                <!-- Listeners Section -->
+                <div id="insp-listeners-section" class="space-y-2.5">
+                    <h3 id="insp-listeners-title" class="text-xs font-semibold uppercase tracking-wider text-fuchsia-400 flex items-center gap-1.5">
+                        <i class="ph-bold ph-broadcast"></i> <span id="insp-listeners-title-text">Dispatches to Listeners</span> (<span id="insp-listeners-count">0</span>)
+                    </h3>
+                    <div id="insp-listeners-list" class="space-y-2"></div>
+                </div>
+
+                <!-- Params / Data Section -->
+                <div id="insp-params-section" class="space-y-2.5 hidden">
+                    <h3 id="insp-params-title" class="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                        <i class="ph-bold ph-database"></i> <span id="insp-params-title-text">Param & Storage Hooks</span> (<span id="insp-params-count">0</span>)
+                    </h3>
+                    <div id="insp-params-list" class="space-y-2"></div>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Data Injection -->
+    <script>
+        const NETWORK_DATA = __NETWORK_DATA_PLACEHOLDER__;
+        let visNetwork = null;
+        let allNodes = [];
+        let allEdges = [];
+        let activeDomain = "ALL";
+        let activeSearch = "";
+        let hideUnconnected = false;
+        let currentInspectTarget = null;
+        let isPhysicsRunning = true;
+        let toastTimeout = null;
+
+        const container = document.getElementById('network-canvas');
+
+        function sendFocusTarget(target) {
+            if (!target) return;
+            window.parent.postMessage({
+                type: 'PTS_NEXUS_FOCUS_TARGET',
+                data: target
+            }, '*');
+
+            const btn = document.getElementById('btn-focus-in-cocos');
+            const label = document.getElementById('btn-focus-label');
+            if (label && btn) {
+                const originalText = label.textContent;
+                label.textContent = "Locating in Cocos Creator...";
+                btn.classList.add('bg-emerald-600');
+                btn.classList.remove('bg-sky-600');
+                setTimeout(() => {
+                    label.textContent = originalText;
+                    btn.classList.remove('bg-emerald-600');
+                    btn.classList.add('bg-sky-600');
+                }, 1000);
+            }
+        }
+
+        function focusNodeInGraph(targetNodeId, scale = 1.4) {
+            if (visNetwork) {
+                visNetwork.focus(targetNodeId, {
+                    scale: scale,
+                    animation: { duration: 500, easingFunction: 'easeInOutQuad' }
+                });
+                visNetwork.selectNodes([targetNodeId]);
+                inspectNode(targetNodeId);
+            }
+        }
+
+        // Toggle / Stop Physics Animation
+        function togglePhysics(forceState) {
+            if (!visNetwork) return;
+            isPhysicsRunning = typeof forceState === 'boolean' ? forceState : !isPhysicsRunning;
+            
+            visNetwork.setOptions({ physics: { enabled: isPhysicsRunning } });
+            if (!isPhysicsRunning) {
+                visNetwork.stopSimulation();
+            }
+
+            const pIcon = document.getElementById('physics-icon');
+            if (pIcon) {
+                if (isPhysicsRunning) {
+                    pIcon.className = 'ph-bold ph-pause text-sm text-amber-400';
+                } else {
+                    pIcon.className = 'ph-bold ph-play text-sm text-emerald-400';
+                }
+            }
+
+            showPhysicsToast(isPhysicsRunning);
+        }
+
+        function showPhysicsToast(running) {
+            const toast = document.getElementById('physics-toast');
+            if (!toast) return;
+
+            clearTimeout(toastTimeout);
+            toast.classList.remove('hidden');
+
+            if (running) {
+                toast.className = 'absolute top-5 right-5 n8n-card px-3.5 py-2 rounded-xl text-xs font-semibold z-10 shadow-2xl flex items-center gap-2 border border-emerald-500/50 text-emerald-300 bg-emerald-950/80';
+                toast.innerHTML = '<i class="ph-bold ph-play text-emerald-400"></i> Motion Active (Right-click to pause)';
+                toastTimeout = setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 1500);
+            } else {
+                toast.className = 'absolute top-5 right-5 n8n-card px-3.5 py-2 rounded-xl text-xs font-semibold z-10 shadow-2xl flex items-center gap-2 border border-amber-500/50 text-amber-300 bg-amber-950/80';
+                toast.innerHTML = '<i class="ph-bold ph-pause text-amber-400"></i> Motion Paused / Frozen (Right-click to resume)';
+            }
+        }
+
+        // Render Dynamic Domain Filters at Bottom Center Dock
+        function renderDynamicDomainFilters() {
+            const filterContainer = document.getElementById('domain-filters-container');
+            filterContainer.innerHTML = "";
+
+            const domainCounts = {};
+            const domainIcons = {};
+            let totalCount = 0;
+
+            Object.values(NETWORK_DATA).forEach(item => {
+                if (hideUnconnected) {
+                    const totalConnections = item.emitters.length + item.listeners.length + item.params.length;
+                    if (totalConnections === 0) return;
+                }
+                const d = item.domain || 'Other';
+                domainCounts[d] = (domainCounts[d] || 0) + 1;
+                if (item.domainIcon) domainIcons[d] = item.domainIcon;
+                totalCount++;
+            });
+
+            // All Button
+            const allBtn = document.createElement('button');
+            const isAllActive = activeDomain === 'ALL';
+            allBtn.className = `filter-btn px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${isAllActive ? 'text-sky-400 bg-slate-700 font-bold shadow-md' : 'text-slate-400 hover:text-white'}`;
+            allBtn.setAttribute('data-domain', 'ALL');
+            allBtn.textContent = `All (${totalCount})`;
+            allBtn.addEventListener('click', () => {
+                activeDomain = 'ALL';
+                renderDynamicDomainFilters();
+                initNetwork();
+            });
+            filterContainer.appendChild(allBtn);
+
+            // Dynamic Domain Buttons
+            Object.keys(domainCounts).sort().forEach(domain => {
+                const count = domainCounts[domain];
+                const icon = domainIcons[domain] || '📁';
+                const isAct = activeDomain === domain;
+                const btn = document.createElement('button');
+                btn.className = `filter-btn px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${isAct ? 'text-sky-400 bg-slate-700 font-bold shadow-md' : 'text-slate-400 hover:text-white'}`;
+                btn.setAttribute('data-domain', domain);
+                btn.innerHTML = `${icon} ${domain} <span class="opacity-60 text-[10px]">(${count})</span>`;
+                btn.addEventListener('click', () => {
+                    activeDomain = domain;
+                    renderDynamicDomainFilters();
+                    initNetwork();
+                });
+                filterContainer.appendChild(btn);
+            });
+        }
+
+        // Build Graph Nodes & Edges from Dataset
+        function buildGraphData() {
+            const nodes = [];
+            const edges = [];
+            const edgeSet = new Set();
+            const nodeMap = new Map();
+
+            Object.entries(NETWORK_DATA).forEach(([uuid, item]) => {
+                // Domain filter
+                if (activeDomain !== "ALL" && item.domain !== activeDomain) {
+                    return;
+                }
+
+                // Hide unconnected / orphan events toggle
+                if (hideUnconnected) {
+                    const totalConnections = item.emitters.length + item.listeners.length + item.params.length;
+                    if (totalConnections === 0) {
+                        return; // Skip orphan nodes!
+                    }
+                }
+
+                // Search filter
+                const searchTarget = (item.name + " " + item.path + " " + JSON.stringify(item.emitters) + " " + JSON.stringify(item.listeners)).toLowerCase();
+                if (activeSearch && !searchTarget.includes(activeSearch)) {
+                    return;
+                }
+
+                const isParam = item.path.includes("params") || item.path.includes("id");
+
+                // 1. Hub Node (JsonAsset) with Radiant Glow & Visual Distinction
+                const eventNodeId = "evt_" + uuid;
+                if (!nodeMap.has(eventNodeId)) {
+                    const hubNode = {
+                        id: eventNodeId,
+                        label: isParam ? `📦  ${item.name}` : `⚡  ${item.name}`,
+                        shape: 'box',
+                        margin: { top: 10, bottom: 10, left: 14, right: 14 },
+                        font: { color: '#ffffff', size: 13, face: 'monospace', bold: true },
+                        color: isParam ? {
+                            background: '#451a03',
+                            border: '#fbbf24',
+                            highlight: { background: '#78350f', border: '#fef08a' },
+                            hover: { background: '#78350f', border: '#fef08a' }
+                        } : {
+                            background: '#082f49',
+                            border: '#38bdf8',
+                            highlight: { background: '#0369a1', border: '#e0f2fe' },
+                            hover: { background: '#0369a1', border: '#e0f2fe' }
+                        },
+                        borderWidth: 2.5,
+                        borderWidthSelected: 3.5,
+                        shadow: { 
+                            enabled: true, 
+                            color: isParam ? 'rgba(245, 158, 11, 0.65)' : 'rgba(56, 189, 248, 0.65)', 
+                            size: 16, 
+                            x: 0, 
+                            y: 0 
+                        },
+                        data: {
+                            type: isParam ? 'PARAM' : 'EVENT',
+                            uuid: uuid,
+                            raw: item
+                        }
+                    };
+                    nodeMap.set(eventNodeId, hubNode);
+                    nodes.push(hubNode);
+                }
+
+                // 2. Emitter Nodes & Inbound Edges (Track all connected event hubs)
+                item.emitters.forEach((emit) => {
+                    const emitNodeId = "emit_" + emit.file + "_" + emit.node + "_" + emit.className + "_" + emit.trigger;
+                    if (!nodeMap.has(emitNodeId)) {
+                        const emitNode = {
+                            id: emitNodeId,
+                            label: `${emit.node}/${emit.className}\n⚡ ${emit.trigger}`,
+                            shape: 'box',
+                            margin: 8,
+                            font: { color: '#f0fdf4', size: 11, face: 'sans-serif', align: 'left' },
+                            color: {
+                                background: '#14532d',
+                                border: '#22c55e',
+                                highlight: { background: '#15803d', border: '#4ade80' },
+                                hover: { background: '#15803d', border: '#4ade80' }
+                            },
+                            borderWidth: 1.5,
+                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 6, x: 0, y: 3 },
+                            data: {
+                                type: 'EMITTER',
+                                emit: emit,
+                                targetEventUuids: [uuid]
+                            }
+                        };
+                        nodeMap.set(emitNodeId, emitNode);
+                        nodes.push(emitNode);
+                    } else {
+                        const existing = nodeMap.get(emitNodeId);
+                        if (existing && existing.data && existing.data.targetEventUuids) {
+                            if (!existing.data.targetEventUuids.includes(uuid)) {
+                                existing.data.targetEventUuids.push(uuid);
+                            }
+                        }
+                    }
+
+                    const edgeId = emitNodeId + "->" + eventNodeId;
+                    if (!edgeSet.has(edgeId)) {
+                        edgeSet.add(edgeId);
+                        edges.push({
+                            id: edgeId,
+                            from: emitNodeId,
+                            to: eventNodeId,
+                            arrows: { to: { enabled: true, scaleFactor: 0.8 } },
+                            color: { color: '#22c55e', highlight: '#4ade80', hover: '#4ade80' },
+                            width: 1.5,
+                            smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.4 }
+                        });
+                    }
+                });
+
+                // 3. Listener Nodes & Outbound Edges (Track all connected event hubs)
+                item.listeners.forEach((list) => {
+                    const listNodeId = "list_" + list.file + "_" + list.node + "_" + list.className + "_" + list.property;
+                    if (!nodeMap.has(listNodeId)) {
+                        const listNode = {
+                            id: listNodeId,
+                            label: `${list.node}/${list.className}\n🎧 ${list.boundMethod || list.property}()`,
+                            shape: 'box',
+                            margin: 8,
+                            font: { color: '#fdf4ff', size: 11, face: 'sans-serif', align: 'left' },
+                            color: {
+                                background: '#581c87',
+                                border: '#c084fc',
+                                highlight: { background: '#6b21a8', border: '#e879f9' },
+                                hover: { background: '#6b21a8', border: '#e879f9' }
+                            },
+                            borderWidth: 1.5,
+                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 6, x: 0, y: 3 },
+                            data: {
+                                type: 'LISTENER',
+                                list: list,
+                                targetEventUuids: [uuid]
+                            }
+                        };
+                        nodeMap.set(listNodeId, listNode);
+                        nodes.push(listNode);
+                    } else {
+                        const existing = nodeMap.get(listNodeId);
+                        if (existing && existing.data && existing.data.targetEventUuids) {
+                            if (!existing.data.targetEventUuids.includes(uuid)) {
+                                existing.data.targetEventUuids.push(uuid);
+                            }
+                        }
+                    }
+
+                    const edgeId = eventNodeId + "->" + listNodeId;
+                    if (!edgeSet.has(edgeId)) {
+                        edgeSet.add(edgeId);
+                        edges.push({
+                            id: edgeId,
+                            from: eventNodeId,
+                            to: listNodeId,
+                            arrows: { to: { enabled: true, scaleFactor: 0.8 } },
+                            color: { color: '#c084fc', highlight: '#e879f9', hover: '#e879f9' },
+                            width: 1.5,
+                            smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.4 }
+                        });
+                    }
+                });
+
+                // 4. Param Holder Nodes & Dashed Edges
+                item.params.forEach((param) => {
+                    const paramNodeId = "param_" + param.file + "_" + param.node + "_" + param.property;
+                    if (!nodeMap.has(paramNodeId)) {
+                        const paramNode = {
+                            id: paramNodeId,
+                            label: `${param.node}/${param.className}\n📦 ${param.property}`,
+                            shape: 'box',
+                            margin: 8,
+                            font: { color: '#fffbeb', size: 11, face: 'sans-serif', align: 'left' },
+                            color: {
+                                background: '#78350f',
+                                border: '#f59e0b',
+                                highlight: { background: '#92400e', border: '#fbbf24' },
+                                hover: { background: '#92400e', border: '#fbbf24' }
+                            },
+                            borderWidth: 1.5,
+                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 6, x: 0, y: 3 },
+                            data: {
+                                type: 'PARAM_HOLDER',
+                                param: param,
+                                targetEventUuids: [uuid]
+                            }
+                        };
+                        nodeMap.set(paramNodeId, paramNode);
+                        nodes.push(paramNode);
+                    } else {
+                        const existing = nodeMap.get(paramNodeId);
+                        if (existing && existing.data && existing.data.targetEventUuids) {
+                            if (!existing.data.targetEventUuids.includes(uuid)) {
+                                existing.data.targetEventUuids.push(uuid);
+                            }
+                        }
+                    }
+
+                    const edgeId = eventNodeId + "-.-" + paramNodeId;
+                    if (!edgeSet.has(edgeId)) {
+                        edgeSet.add(edgeId);
+                        edges.push({
+                            id: edgeId,
+                            from: eventNodeId,
+                            to: paramNodeId,
+                            dashes: true,
+                            color: { color: '#f59e0b', highlight: '#fbbf24', hover: '#fbbf24' },
+                            width: 1.5,
+                            smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.4 }
+                        });
+                    }
+                });
+            });
+
+            allNodes = nodes;
+            allEdges = edges;
+
+            return {
+                nodes: new vis.DataSet(nodes),
+                edges: new vis.DataSet(edges)
+            };
+        }
+
+        // Initialize Vis.js with Calmer Smooth Physics
+        function initNetwork() {
+            const graphData = buildGraphData();
+
+            const options = {
+                nodes: {
+                    borderWidthSelected: 2,
+                    chosen: {
+                        node: function(values, id, selected, hovering) {
+                            if (selected) {
+                                values.borderWidth = 3;
+                            }
+                        }
+                    }
+                },
+                physics: {
+                    enabled: isPhysicsRunning,
+                    solver: 'forceAtlas2Based',
+                    forceAtlas2Based: {
+                        gravitationalConstant: -55,
+                        centralGravity: 0.006,
+                        springLength: 130,
+                        springConstant: 0.06,
+                        damping: 0.92,
+                        avoidOverlap: 0.5
+                    },
+                    stabilization: {
+                        enabled: true,
+                        iterations: 180,
+                        updateInterval: 25
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                    hideEdgesOnDrag: false,
+                    zoomView: true,
+                    dragView: true
+                }
+            };
+
+            visNetwork = new vis.Network(container, graphData, options);
+
+            // Single click inspect
+            visNetwork.on("click", function(params) {
+                if (params.nodes.length > 0) {
+                    const selectedNodeId = params.nodes[0];
+                    inspectNode(selectedNodeId);
+                } else {
+                    clearInspector();
+                }
+            });
+
+            // Double click zoom in to node
+            visNetwork.on("doubleClick", function(params) {
+                if (params.nodes.length > 0) {
+                    const targetNodeId = params.nodes[0];
+                    focusNodeInGraph(targetNodeId, 1.8);
+                }
+            });
+
+            // Right click freeze/stop animation
+            visNetwork.on("oncontext", function(params) {
+                params.event.preventDefault();
+                togglePhysics();
+            });
+        }
+
+        // Prevent browser native context menu on canvas
+        container.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+
+        // Context-Aware Inspector Supporting Multiple Connected Hubs
+        function inspectNode(nodeId) {
+            const node = allNodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            const placeholder = document.getElementById('inspector-placeholder');
+            const content = document.getElementById('inspector-content');
+            placeholder.classList.add('hidden');
+            content.classList.remove('hidden');
+
+            const inspBadge = document.getElementById('insp-badge');
+            const inspDomain = document.getElementById('insp-domain');
+            const inspTitle = document.getElementById('insp-title');
+            const btnFocusLabel = document.getElementById('btn-focus-label');
+            const inspPathRow = document.getElementById('insp-path-row');
+            const inspDetailRow = document.getElementById('insp-detail-row');
+            const inspUuidRow = document.getElementById('insp-uuid-row');
+
+            const connectedHubsSection = document.getElementById('insp-connected-hubs-section');
+            const connectedHubsList = document.getElementById('insp-connected-hubs-list');
+            const connectedHubsCount = document.getElementById('insp-hubs-count');
+
+            const emittersSection = document.getElementById('insp-emitters-section');
+            const emittersTitleText = document.getElementById('insp-emitters-title-text');
+            const emittersList = document.getElementById('insp-emitters-list');
+
+            const listenersSection = document.getElementById('insp-listeners-section');
+            const listenersTitleText = document.getElementById('insp-listeners-title-text');
+            const listenersList = document.getElementById('insp-listeners-list');
+
+            const paramsSection = document.getElementById('insp-params-section');
+            const paramsList = document.getElementById('insp-params-list');
+
+            connectedHubsList.innerHTML = "";
+            emittersList.innerHTML = "";
+            listenersList.innerHTML = "";
+            paramsList.innerHTML = "";
+
+            const nodeType = node.data.type;
+            const targetEventUuids = node.data.targetEventUuids || (node.data.targetEventUuid ? [node.data.targetEventUuid] : (node.data.uuid ? [node.data.uuid] : []));
+            const connectedHubs = targetEventUuids.map(u => NETWORK_DATA[u]).filter(Boolean);
+
+            if (connectedHubs.length > 0) {
+                inspDomain.textContent = `${connectedHubs[0].domainIcon || ''} ${connectedHubs[0].domain || ''}`;
+            } else {
+                inspDomain.textContent = '';
+            }
+
+            // ==========================================
+            // CASE 1: JSON ASSET HUB (EVENT / PARAM)
+            // ==========================================
+            if (nodeType === 'EVENT' || nodeType === 'PARAM') {
+                const eventItem = node.data.raw;
+                currentInspectTarget = {
+                    uuid: eventItem.uuid,
+                    path: eventItem.path,
+                    file: eventItem.path,
+                    name: eventItem.name,
+                    type: 'asset'
+                };
+
+                inspBadge.textContent = nodeType === 'PARAM' ? 'PARAM ASSET' : 'EVENT ASSET';
+                inspBadge.className = nodeType === 'PARAM' 
+                    ? 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-amber-950 text-amber-400 border border-amber-800'
+                    : 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-sky-950 text-sky-400 border border-sky-800';
+
+                inspTitle.textContent = eventItem.name;
+                btnFocusLabel.textContent = `Focus '${eventItem.name}' in Assets`;
+                
+                inspPathRow.innerHTML = `<span class="text-slate-500">Path:</span> ${eventItem.path}`;
+                inspDetailRow.innerHTML = `<span class="text-slate-500">Domain:</span> ${eventItem.domain}`;
+                inspUuidRow.textContent = `UUID: ${eventItem.uuid}`;
+
+                connectedHubsSection.classList.add('hidden');
+
+                // Show all Emitters
+                emittersSection.classList.remove('hidden');
+                emittersTitleText.textContent = "Triggered By Emitters";
+                document.getElementById('insp-emitters-count').textContent = eventItem.emitters.length;
+
+                if (eventItem.emitters.length === 0) {
+                    emittersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No direct prefab emitters bound</div>';
+                } else {
+                    eventItem.emitters.forEach(e => {
+                        const el = renderEmitterCard(e);
+                        emittersList.appendChild(el);
+                    });
+                }
+
+                // Show all Listeners
+                listenersSection.classList.remove('hidden');
+                listenersTitleText.textContent = "Dispatches to Listeners";
+                document.getElementById('insp-listeners-count').textContent = eventItem.listeners.length;
+
+                if (eventItem.listeners.length === 0) {
+                    listenersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No active subscribers bound</div>';
+                } else {
+                    eventItem.listeners.forEach(l => {
+                        const el = renderListenerCard(l);
+                        listenersList.appendChild(el);
+                    });
+                }
+
+                // Show Params
+                if (eventItem.params && eventItem.params.length > 0) {
+                    paramsSection.classList.remove('hidden');
+                    document.getElementById('insp-params-count').textContent = eventItem.params.length;
+                    eventItem.params.forEach(p => {
+                        const el = renderParamCard(p);
+                        paramsList.appendChild(el);
+                    });
+                } else {
+                    paramsSection.classList.add('hidden');
+                }
+            }
+            // ==========================================
+            // CASE 2: EMITTER NODE (Supports Multiple Hubs!)
+            // ==========================================
+            else if (nodeType === 'EMITTER') {
+                const emit = node.data.emit;
+                currentInspectTarget = {
+                    file: emit.file,
+                    node: emit.node,
+                    className: emit.className,
+                    scriptFile: emit.scriptFile,
+                    type: 'emitter'
+                };
+
+                inspBadge.textContent = 'EMITTER TRIGGER';
+                inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800';
+
+                inspTitle.textContent = `${emit.node}/${emit.className}/${emit.property}`;
+                btnFocusLabel.textContent = `Focus '${emit.node}' in ${emit.file.endsWith('.prefab') ? 'Prefab' : 'Scene'}`;
+
+                inspPathRow.innerHTML = `<span class="text-emerald-400 font-semibold">⚡ Trigger:</span> <span class="text-white">${emit.trigger}</span>`;
+                inspDetailRow.innerHTML = `<span class="text-slate-500">File:</span> ${emit.file}<br/><span class="text-slate-500">Script:</span> ${emit.scriptFile}${emit.paramsPassed ? `<br/><span class="text-slate-500">Args:</span> <span class="text-emerald-300 font-mono">${emit.paramsPassed}</span>` : ''}`;
+                inspUuidRow.textContent = `Node: ${emit.node} | Property: ${emit.property}`;
+
+                // Connected Event Hubs List
+                if (connectedHubs.length > 0) {
+                    connectedHubsSection.classList.remove('hidden');
+                    connectedHubsCount.textContent = connectedHubs.length;
+                    connectedHubs.forEach(hub => {
+                        const hubCard = renderConnectedHubCard(hub);
+                        connectedHubsList.appendChild(hubCard);
+                    });
+                } else {
+                    connectedHubsSection.classList.add('hidden');
+                }
+
+                // Hide other emitters & params
+                emittersSection.classList.add('hidden');
+                paramsSection.classList.add('hidden');
+
+                // Collect & Group Listeners Across All Connected Hubs
+                listenersSection.classList.remove('hidden');
+                listenersTitleText.textContent = "Direct Downstream Listeners Invoked";
+
+                let totalInvokedListeners = 0;
+                connectedHubs.forEach(hub => {
+                    totalInvokedListeners += hub.listeners.length;
+                });
+                document.getElementById('insp-listeners-count').textContent = totalInvokedListeners;
+
+                if (totalInvokedListeners === 0) {
+                    listenersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No active listener handlers connected to the triggered event(s)</div>';
+                } else if (connectedHubs.length === 1) {
+                    // Clean flat list for single hub
+                    connectedHubs[0].listeners.forEach(l => {
+                        listenersList.appendChild(renderListenerCard(l));
+                    });
+                } else {
+                    connectedHubs.forEach(hub => {
+                        if (hub.listeners.length > 0) {
+                            const groupHeader = document.createElement('div');
+                            groupHeader.className = "text-[11px] font-bold text-sky-400 flex items-center justify-between bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700/60 mt-2";
+                            groupHeader.innerHTML = `
+                                <span class="truncate">🔗 Via ${hub.name}</span>
+                                <span class="text-[10px] text-slate-400 font-mono font-normal">${hub.listeners.length} handlers</span>
+                            `;
+                            listenersList.appendChild(groupHeader);
+
+                            const groupContent = document.createElement('div');
+                            groupContent.className = "space-y-1.5 pl-1.5 border-l-2 border-sky-800/60";
+                            hub.listeners.forEach(l => {
+                                groupContent.appendChild(renderListenerCard(l));
+                            });
+                            listenersList.appendChild(groupContent);
+                        }
+                    });
+                }
+            }
+            // ==========================================
+            // CASE 3: LISTENER NODE (Supports Multiple Hubs!)
+            // ==========================================
+            else if (nodeType === 'LISTENER') {
+                const list = node.data.list;
+                currentInspectTarget = {
+                    file: list.file,
+                    node: list.node,
+                    className: list.className,
+                    scriptFile: list.scriptFile,
+                    type: 'listener'
+                };
+
+                inspBadge.textContent = 'LISTENER HANDLER';
+                inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-purple-950 text-purple-400 border border-purple-800';
+
+                inspTitle.textContent = `${list.node}/${list.className}/${list.property}`;
+                btnFocusLabel.textContent = `Focus '${list.node}' in ${list.file.endsWith('.prefab') ? 'Prefab' : 'Scene'}`;
+
+                inspPathRow.innerHTML = `<span class="text-purple-300 font-semibold">🎧 Method:</span> <span class="text-white font-mono">${list.boundMethod || list.property}()</span>`;
+                inspDetailRow.innerHTML = `<span class="text-slate-500">File:</span> ${list.file}<br/><span class="text-slate-500">Script:</span> ${list.scriptFile}${list.methodSignature ? `<br/><span class="text-slate-500">Signature:</span> <span class="text-purple-300 font-mono">(${list.methodSignature})</span>` : ''}`;
+                inspUuidRow.textContent = `Node: ${list.node} | Bound Property: ${list.property}`;
+
+                // Connected Event Hubs List
+                if (connectedHubs.length > 0) {
+                    connectedHubsSection.classList.remove('hidden');
+                    connectedHubsCount.textContent = connectedHubs.length;
+                    connectedHubs.forEach(hub => {
+                        const hubCard = renderConnectedHubCard(hub);
+                        connectedHubsList.appendChild(hubCard);
+                    });
+                } else {
+                    connectedHubsSection.classList.add('hidden');
+                }
+
+                // Hide other listeners & params
+                listenersSection.classList.add('hidden');
+                paramsSection.classList.add('hidden');
+
+                // Collect & Group Upstream Triggers Across All Connected Hubs
+                emittersSection.classList.remove('hidden');
+                emittersTitleText.textContent = "Upstream Triggers Calling This Handler";
+
+                let totalUpstreamEmitters = 0;
+                connectedHubs.forEach(hub => {
+                    totalUpstreamEmitters += hub.emitters.length;
+                });
+                document.getElementById('insp-emitters-count').textContent = totalUpstreamEmitters;
+
+                if (totalUpstreamEmitters === 0) {
+                    emittersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No direct emitters bound to the subscribed event(s) yet</div>';
+                } else if (connectedHubs.length === 1) {
+                    // Clean flat list for single hub
+                    connectedHubs[0].emitters.forEach(e => {
+                        emittersList.appendChild(renderEmitterCard(e));
+                    });
+                } else {
+                    // Grouped by hub for multiple hubs
+                    connectedHubs.forEach(hub => {
+                        if (hub.emitters.length > 0) {
+                            const groupHeader = document.createElement('div');
+                            groupHeader.className = "text-[11px] font-bold text-sky-400 flex items-center justify-between bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700/60 mt-2";
+                            groupHeader.innerHTML = `
+                                <span class="truncate">🔗 Via ${hub.name}</span>
+                                <span class="text-[10px] text-slate-400 font-mono font-normal">${hub.emitters.length} triggers</span>
+                            `;
+                            emittersList.appendChild(groupHeader);
+
+                            const groupContent = document.createElement('div');
+                            groupContent.className = "space-y-1.5 pl-1.5 border-l-2 border-sky-800/60";
+                            hub.emitters.forEach(e => {
+                                groupContent.appendChild(renderEmitterCard(e));
+                            });
+                            emittersList.appendChild(groupContent);
+                        }
+                    });
+                }
+            }
+            // ==========================================
+            // CASE 4: PARAM HOLDER (Supports Multiple Hubs)
+            // ==========================================
+            else if (nodeType === 'PARAM_HOLDER') {
+                const param = node.data.param;
+                currentInspectTarget = {
+                    file: param.file,
+                    node: param.node,
+                    className: param.className,
+                    scriptFile: param.scriptFile,
+                    type: 'param_holder'
+                };
+
+                inspBadge.textContent = 'PARAM HOLDER';
+                inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-amber-950 text-amber-400 border border-amber-800';
+
+                inspTitle.textContent = `${param.node}/${param.className}/${param.property}`;
+                btnFocusLabel.textContent = `Focus '${param.node}' in ${param.file.endsWith('.prefab') ? 'Prefab' : 'Scene'}`;
+
+                inspPathRow.innerHTML = `<span class="text-amber-400 font-semibold">📦 Property:</span> <span class="text-white font-mono">${param.property}</span>`;
+                inspDetailRow.innerHTML = `<span class="text-slate-500">File:</span> ${param.file}<br/><span class="text-slate-500">Script:</span> ${param.scriptFile}`;
+                inspUuidRow.textContent = `Node: ${param.node}`;
+
+                if (connectedHubs.length > 0) {
+                    connectedHubsSection.classList.remove('hidden');
+                    connectedHubsCount.textContent = connectedHubs.length;
+                    connectedHubs.forEach(hub => {
+                        const hubCard = renderConnectedHubCard(hub);
+                        connectedHubsList.appendChild(hubCard);
+                    });
+                } else {
+                    connectedHubsSection.classList.add('hidden');
+                }
+
+                emittersSection.classList.add('hidden');
+                listenersSection.classList.add('hidden');
+                paramsSection.classList.add('hidden');
+            }
+        }
+
+        function renderConnectedHubCard(hub) {
+            const card = document.createElement('div');
+            card.className = "p-2.5 rounded-lg bg-sky-950/40 hover:bg-sky-900/50 border border-sky-800/60 hover:border-sky-500 flex items-center justify-between text-xs cursor-pointer transition-all group";
+            card.innerHTML = `
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <span class="text-sky-400 font-mono font-bold text-xs">🔗</span>
+                    <div class="flex flex-col truncate">
+                        <span class="font-mono text-sky-200 font-semibold truncate group-hover:text-white">${hub.name}</span>
+                        <span class="text-[10px] text-slate-400 font-mono truncate">${hub.domainIcon || ''} ${hub.domain || ''}</span>
+                    </div>
+                </div>
+                <button class="px-2 py-0.5 rounded bg-sky-800 group-hover:bg-sky-600 text-[10px] text-sky-100 font-semibold shrink-0 transition-all">
+                    Focus
+                </button>
+            `;
+            card.addEventListener('click', () => {
+                focusNodeInGraph('evt_' + hub.uuid, 1.4);
+            });
+            return card;
+        }
+
+        function renderEmitterCard(e) {
+            const el = document.createElement('div');
+            el.className = "p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 space-y-1.5";
+            el.innerHTML = `
+                <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-emerald-400">${e.node}</span>
+                    <div class="flex items-center gap-1">
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-300 font-mono">${e.className}</span>
+                        <button class="mini-focus-btn p-1 rounded bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-all" title="Focus file in Cocos Creator">
+                            <i class="ph-bold ph-crosshair text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="text-xs text-slate-300 font-mono">⚡ ${e.trigger}</div>
+                <div class="text-[11px] text-slate-400 break-all">${e.file}</div>
+                ${e.paramsPassed ? `<div class="text-[10px] text-emerald-300 font-mono bg-emerald-950/80 p-1 rounded">Args: ${e.paramsPassed}</div>` : ''}
+            `;
+            el.querySelector('.mini-focus-btn').addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                sendFocusTarget({ file: e.file, node: e.node, scriptFile: e.scriptFile, type: 'emitter' });
+            });
+            return el;
+        }
+
+        function renderListenerCard(l) {
+            const el = document.createElement('div');
+            el.className = "p-3 rounded-lg bg-purple-950/40 border border-purple-800/60 space-y-1.5";
+            el.innerHTML = `
+                <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-purple-300">${l.node}</span>
+                    <div class="flex items-center gap-1">
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200 font-mono">${l.className}</span>
+                        <button class="mini-focus-btn p-1 rounded bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white transition-all" title="Focus file in Cocos Creator">
+                            <i class="ph-bold ph-crosshair text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="text-xs text-slate-300 font-mono">🎧 ${l.boundMethod || l.property}()</div>
+                <div class="text-[11px] text-slate-400 break-all">${l.file}</div>
+                ${l.methodSignature ? `<div class="text-[10px] text-purple-300 font-mono bg-purple-950/80 p-1 rounded">Signature: (${l.methodSignature})</div>` : ''}
+            `;
+            el.querySelector('.mini-focus-btn').addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                sendFocusTarget({ file: l.file, node: l.node, scriptFile: l.scriptFile, type: 'listener' });
+            });
+            return el;
+        }
+
+        function renderParamCard(p) {
+            const el = document.createElement('div');
+            el.className = "p-2.5 rounded-lg bg-amber-950/40 border border-amber-800/60 text-xs space-y-1.5";
+            el.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-amber-300">${p.node}</span>
+                    <div class="flex items-center gap-1">
+                        <span class="text-[10px] font-mono text-amber-400">${p.className}</span>
+                        <button class="mini-focus-btn p-1 rounded bg-slate-800 hover:bg-amber-600 text-slate-300 hover:text-white transition-all" title="Focus file in Cocos Creator">
+                            <i class="ph-bold ph-crosshair text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="text-slate-300 font-mono">Property: ${p.property}</div>
+                <div class="text-[11px] text-slate-400 break-all">${p.file}</div>
+            `;
+            el.querySelector('.mini-focus-btn').addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                sendFocusTarget({ file: p.file, node: p.node, scriptFile: p.scriptFile, type: 'param_holder' });
+            });
+            return el;
+        }
+
+        function clearInspector() {
+            document.getElementById('inspector-placeholder').classList.remove('hidden');
+            document.getElementById('inspector-content').classList.add('hidden');
+            currentInspectTarget = null;
+        }
+
+        function populateEventList() {
+            const listContainer = document.getElementById('event-list');
+            listContainer.innerHTML = "";
+
+            const allEntries = Object.entries(NETWORK_DATA).sort((a, b) => a[1].name.localeCompare(b[1].name));
+            const filteredEntries = allEntries.filter(([uuid, item]) => {
+                if (hideUnconnected) {
+                    const totalConnections = item.emitters.length + item.listeners.length + item.params.length;
+                    if (totalConnections === 0) return false;
+                }
+                return true;
+            });
+
+            document.getElementById('event-count').textContent = `${filteredEntries.length}/${allEntries.length}`;
+
+            filteredEntries.forEach(([uuid, item]) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-2.5 rounded-lg hover:bg-slate-800/80 transition-all border border-transparent hover:border-slate-700 flex flex-col gap-1 group";
+                btn.innerHTML = `
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-200 group-hover:text-sky-400 truncate">${item.name}</span>
+                        <span class="text-[10px] text-slate-500">${item.domainIcon || ''}</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-[10px] text-slate-400 font-mono">
+                        <span class="text-emerald-400">↑ ${item.emitters.length}</span>
+                        <span class="text-purple-400">↓ ${item.listeners.length}</span>
+                        ${item.params.length > 0 ? `<span class="text-amber-400">* ${item.params.length}</span>` : ''}
+                    </div>
+                `;
+
+                btn.addEventListener('click', () => {
+                    const targetNodeId = "evt_" + uuid;
+                    focusNodeInGraph(targetNodeId, 1.4);
+                });
+
+                listContainer.appendChild(btn);
+            });
+        }
+
+        // Search Input Handler
+        const searchInput = document.getElementById('search-input');
+        const clearSearchBtn = document.getElementById('clear-search');
+        let searchDebounce = null;
+
+        searchInput.addEventListener('input', (e) => {
+            activeSearch = e.target.value.trim().toLowerCase();
+            if (activeSearch.length > 0) {
+                clearSearchBtn.classList.remove('hidden');
+            } else {
+                clearSearchBtn.classList.add('hidden');
+            }
+
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => {
+                initNetwork();
+            }, 250);
+        });
+
+        clearSearchBtn.addEventListener('click', () => {
+            searchInput.value = "";
+            activeSearch = "";
+            clearSearchBtn.classList.add('hidden');
+            initNetwork();
+        });
+
+        // Hide Unconnected / Orphan Events Toggle
+        const btnToggleUnconnected = document.getElementById('btn-toggle-unconnected');
+        const unconnectedIcon = document.getElementById('unconnected-icon');
+        btnToggleUnconnected.addEventListener('click', () => {
+            hideUnconnected = !hideUnconnected;
+            if (hideUnconnected) {
+                btnToggleUnconnected.className = 'px-2.5 py-1.5 rounded-lg bg-sky-950 text-sky-300 font-semibold border border-sky-600 shadow-md transition-all flex items-center gap-1.5 text-xs';
+                unconnectedIcon.className = 'ph-bold ph-funnel text-sm text-sky-400';
+            } else {
+                btnToggleUnconnected.className = 'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-1.5 text-xs';
+                unconnectedIcon.className = 'ph-bold ph-funnel text-sm text-slate-400';
+            }
+            renderDynamicDomainFilters();
+            populateEventList();
+            initNetwork();
+        });
+
+        // Focus in Cocos Button
+        document.getElementById('btn-focus-in-cocos').addEventListener('click', () => {
+            if (currentInspectTarget) {
+                sendFocusTarget(currentInspectTarget);
+            }
+        });
+
+        // Toolbar Buttons
+        function zoomBy(factor) {
+            if (!visNetwork) return;
+            const currentScale = visNetwork.getScale();
+            const targetScale = Math.max(0.1, Math.min(4.0, currentScale * factor));
+            visNetwork.moveTo({
+                scale: targetScale,
+                animation: { duration: 200, easingFunction: 'easeInOutQuad' }
+            });
+        }
+
+        document.getElementById('btn-toggle-physics').addEventListener('click', () => togglePhysics());
+        document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.3));
+        document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(0.75));
+
+        document.getElementById('btn-re-layout').addEventListener('click', () => {
+            if (visNetwork) {
+                togglePhysics(true);
+                visNetwork.stabilize();
+            }
+        });
+
+        document.getElementById('btn-fit-zoom').addEventListener('click', () => {
+            if (visNetwork) visNetwork.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+        });
+
+        const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+        const leftSidebar = document.getElementById('left-sidebar');
+        toggleSidebarBtn.addEventListener('click', () => {
+            leftSidebar.classList.toggle('-ml-80');
+        });
+
+        // Keybindings: `+` (zoom in), `-` (zoom out), `Space` (pause physics)
+        window.addEventListener('keydown', (e) => {
+            if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
+                return;
+            }
+
+            if (!visNetwork) return;
+
+            if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+                e.preventDefault();
+                zoomBy(1.3);
+            } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
+                e.preventDefault();
+                zoomBy(0.75);
+            } else if (e.code === 'Space') {
+                e.preventDefault();
+                togglePhysics();
+            } else if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                visNetwork.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderDynamicDomainFilters();
+            populateEventList();
+            initNetwork();
+        });
+    </script>
+</body>
+</html>
