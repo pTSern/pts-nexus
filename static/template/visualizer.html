@@ -55,9 +55,9 @@
 <body class="h-screen flex flex-col antialiased select-none">
 
     <!-- Top Navigation Header -->
-    <header class="h-16 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-4 z-20 shrink-0 gap-3">
-        <!-- Left: Logo, Title, Action Buttons (Refresh & Export) & Color Legend -->
-        <div class="flex items-center space-x-3 shrink-0">
+    <header class="h-16 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-4 z-20 shrink-0 gap-4">
+        <!-- Left: Logo, Title & Action Buttons (Refresh & Export) -->
+        <div class="flex items-center space-x-3 shrink-0 min-w-max">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-sky-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-sky-500/20">
                 <i class="ph-bold ph-git-merge text-white text-xl"></i>
             </div>
@@ -68,7 +68,7 @@
                 <p class="text-xs text-slate-400">pEngine.Json Event Bus & Parameter Registry</p>
             </div>
 
-            <!-- Action Buttons near Title: Refresh Network & Export HTML -->
+            <!-- Action Buttons: Refresh Network & Export HTML -->
             <div class="flex items-center space-x-1.5 ml-2 pl-2 border-l border-slate-800">
                 <button id="btn-refresh-network" title="Re-scan project and refresh event network" class="px-2.5 py-1.5 rounded-lg bg-sky-950 hover:bg-sky-900 active:bg-sky-950 text-sky-300 hover:text-white border border-sky-700/60 shadow-sm transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
                     <i id="refresh-icon" class="ph-bold ph-arrows-clockwise text-sm text-sky-400"></i>
@@ -79,16 +79,31 @@
                     <span>Export HTML</span>
                 </button>
             </div>
+        </div>
 
-            <!-- Color Legend (Beside Title and Actions) -->
-            <div class="hidden xl:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs font-medium ml-1 shadow-inner">
+        <!-- Center: Centered Search Bar -->
+        <div class="flex-1 max-w-xl mx-auto flex items-center justify-center">
+            <div class="relative w-full max-w-lg">
+                <i class="ph ph-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-base"></i>
+                <input id="search-input" type="text" placeholder="Search event, component (e.g. AdsManager), node, or trigger..." 
+                    class="w-full bg-slate-800/80 border border-slate-700 text-sm rounded-lg pl-9 pr-8 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all shadow-inner">
+                <button id="clear-search" class="hidden absolute right-2.5 top-2.5 text-slate-400 hover:text-white">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Right: Color Legend & Action Controls -->
+        <div class="flex items-center space-x-2 shrink-0 min-w-max">
+            <!-- Color Legend -->
+            <div class="hidden 2xl:flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs font-medium mr-1 shadow-inner">
                 <div class="flex items-center gap-1.5">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
                     <span class="text-slate-300">Emitter</span>
                 </div>
                 <div class="flex items-center gap-1.5">
                     <span class="w-2.5 h-2.5 rounded-md bg-sky-500 shadow-sm shadow-sky-500/50"></span>
-                    <span class="text-slate-300">Event Hub</span>
+                    <span class="text-slate-300">Hub</span>
                 </div>
                 <div class="flex items-center gap-1.5">
                     <span class="w-2.5 h-2.5 rounded-full bg-fuchsia-500 shadow-sm shadow-fuchsia-500/50"></span>
@@ -99,32 +114,16 @@
                     <span class="text-slate-300">Param</span>
                 </div>
             </div>
-        </div>
 
-        <!-- Center: Search Bar -->
-        <div class="flex items-center space-x-4 flex-1 max-w-md mx-2">
-            <div class="relative w-full">
-                <i class="ph ph-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-base"></i>
-                <input id="search-input" type="text" placeholder="Search event, component, node, or trigger..." 
-                    class="w-full bg-slate-800/80 border border-slate-700 text-sm rounded-lg pl-9 pr-8 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all">
-                <button id="clear-search" class="hidden absolute right-2.5 top-2.5 text-slate-400 hover:text-white">
-                    <i class="ph ph-x"></i>
-                </button>
-            </div>
-        </div>
-
-        <!-- Right: Action & Toggle Buttons -->
-        <div class="flex items-center space-x-1.5 shrink-0">
             <!-- HIDE UNCONNECTED / ORPHAN TOGGLE -->
             <button id="btn-toggle-unconnected" title="Hide Unconnected / Orphan Events" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-1.5 text-xs">
                 <i id="unconnected-icon" class="ph-bold ph-funnel text-sm text-slate-400"></i>
-                <span id="unconnected-label" class="hidden sm:inline">Active Wiring Only</span>
+                <span id="unconnected-label" class="hidden sm:inline">Active Only</span>
             </button>
 
             <!-- MOTION TOGGLE -->
-            <button id="btn-toggle-physics" title="Pause / Freeze Animation (Right-Click Canvas or Space)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-1.5 text-xs">
+            <button id="btn-toggle-physics" title="Pause / Freeze Animation (Right-Click Canvas or Space)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-1 text-xs">
                 <i id="physics-icon" class="ph-bold ph-pause text-sm text-amber-400"></i>
-                <span class="hidden xl:inline text-slate-400">Motion</span>
             </button>
 
             <button id="btn-zoom-in" title="Zoom In (+)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all">
@@ -174,7 +173,7 @@
             </div>
 
             <!-- Bottom Floating Filter Bar: Positioned at Bottom Center with 90% Width of Center View -->
-            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] pointer-events-none z-10 flex justify-center">
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 w-[95%] pointer-events-none z-10 flex justify-center">
                 <div id="domain-filters-container" class="filter-container n8n-card p-1.5 rounded-2xl border border-slate-700/60 text-xs overflow-x-auto w-full flex items-center justify-start sm:justify-center gap-1 shadow-2xl pointer-events-auto">
                     <!-- Dynamically populated via JS -->
                 </div>
@@ -213,11 +212,12 @@
                         <span id="btn-focus-label">Focus in Cocos Creator</span>
                     </button>
 
-                    <!-- Meta details box -->
-                    <div id="insp-meta-box" class="space-y-1.5 p-3 rounded-lg bg-slate-800/70 border border-slate-700/60 text-xs">
-                        <div id="insp-path-row" class="font-mono text-slate-300 break-all select-text"></div>
-                        <div id="insp-detail-row" class="font-mono text-slate-400 break-all select-text"></div>
-                        <div id="insp-uuid-row" class="text-[11px] font-mono text-slate-500 select-text"></div>
+                    <!-- Dedicated Reference Path Box -->
+                    <div id="insp-meta-box" class="space-y-2 p-3.5 rounded-xl bg-slate-800/90 border border-slate-700/70 text-xs font-mono shadow-md">
+                        <div class="text-[11px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-700/60 pb-1.5">
+                            <i class="ph-bold ph-git-commit text-sm"></i> Reference Path
+                        </div>
+                        <div id="insp-path-row" class="space-y-1 select-text"></div>
                     </div>
 
                     <!-- Connected Event Hubs Section (Supports Multiple Connected Hubs) -->
@@ -261,7 +261,8 @@
 
     <!-- Data Injection -->
     <script>
-        const NETWORK_DATA = __NETWORK_DATA_PLACEHOLDER__;
+        const RAW_DATA = __NETWORK_DATA_PLACEHOLDER__;
+        const NETWORK_DATA = (RAW_DATA && RAW_DATA.catalog) ? RAW_DATA.catalog : (RAW_DATA || {});
         let visNetwork = null;
         let allNodes = [];
         let allEdges = [];
@@ -348,6 +349,55 @@
             }
         }
 
+        // Populate Left Sidebar Event List Catalog
+        function populateEventList() {
+            const listEl = document.getElementById('event-list');
+            const countEl = document.getElementById('event-count');
+            if (!listEl) return;
+            listEl.innerHTML = "";
+
+            const items = Object.values(NETWORK_DATA).filter(item => {
+                if (activeDomain !== "ALL" && item.domain !== activeDomain) return false;
+                if (hideUnconnected) {
+                    const total = item.emitters.length + item.listeners.length + item.params.length;
+                    if (total === 0) return false;
+                }
+                if (activeSearch) {
+                    const str = (item.name + " " + item.path + " " + JSON.stringify(item.emitters) + " " + JSON.stringify(item.listeners)).toLowerCase();
+                    if (!str.includes(activeSearch)) return false;
+                }
+                return true;
+            });
+
+            if (countEl) countEl.textContent = items.length;
+
+            items.sort((a, b) => a.name.localeCompare(b.name)).forEach(item => {
+                const row = document.createElement('div');
+                const isParam = item.path.includes("params") || item.path.includes("id");
+                row.className = 'group p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/50 hover:border-sky-500/60 cursor-pointer transition-all flex items-center justify-between gap-2 text-xs shadow-sm';
+                
+                row.innerHTML = `
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                        <span class="text-sm shrink-0">${isParam ? '📦' : (item.domainIcon || '⚡')}</span>
+                        <div class="min-w-0 flex-1">
+                            <div class="font-medium text-slate-200 group-hover:text-white truncate text-[11px] font-mono">${item.name}</div>
+                            <div class="text-[10px] text-slate-400 truncate">${item.domain || 'General'}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0 text-[10px] font-mono">
+                        ${item.emitters.length > 0 ? `<span class="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 font-semibold">${item.emitters.length}e</span>` : ''}
+                        ${item.listeners.length > 0 ? `<span class="px-1.5 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/60 font-semibold">${item.listeners.length}l</span>` : ''}
+                    </div>
+                `;
+
+                row.addEventListener('click', () => {
+                    focusNodeInGraph("evt_" + item.uuid, 1.6);
+                });
+
+                listEl.appendChild(row);
+            });
+        }
+
         // Render Dynamic Domain Filters at Bottom Center Dock
         function renderDynamicDomainFilters() {
             const filterContainer = document.getElementById('domain-filters-container');
@@ -405,6 +455,27 @@
             const edges = [];
             const edgeSet = new Set();
             const nodeMap = new Map();
+            const sceneNodeToComponentIds = new Map();
+
+            const getShortNode = (nodePath) => {
+                if (!nodePath) return 'Node';
+                const parts = nodePath.split('/');
+                if (parts.length > 2) {
+                    return parts.slice(-2).join('/');
+                }
+                return nodePath;
+            };
+
+            const recordSameNode = (file, node, graphNodeId) => {
+                const key = `${file}::${node}`;
+                if (!sceneNodeToComponentIds.has(key)) {
+                    sceneNodeToComponentIds.set(key, []);
+                }
+                const list = sceneNodeToComponentIds.get(key);
+                if (!list.includes(graphNodeId)) {
+                    list.push(graphNodeId);
+                }
+            };
 
             Object.entries(NETWORK_DATA).forEach(([uuid, item]) => {
                 // Domain filter
@@ -467,16 +538,22 @@
                     nodes.push(hubNode);
                 }
 
+
+
                 // 2. Emitter Nodes & Inbound Edges (Track all connected event hubs)
-                item.emitters.forEach((emit) => {
-                    const emitNodeId = "emit_" + emit.file + "_" + emit.node + "_" + emit.className + "_" + emit.trigger;
+                item.emitters.forEach((emit, idx) => {
+                    const shortNode = getShortNode(emit.node);
+                    const emitIdSuffix = emit.compId !== undefined ? emit.compId : (emit.trigger || idx);
+                    const emitNodeId = "emit_" + emit.file + "_" + emit.node + "_" + emit.className + "_" + emitIdSuffix;
+                    recordSameNode(emit.file, emit.node, emitNodeId);
+
                     if (!nodeMap.has(emitNodeId)) {
                         const emitNode = {
                             id: emitNodeId,
-                            label: `${emit.node}/${emit.className}\n⚡ ${emit.trigger}`,
+                            label: `${shortNode} · ${emit.className}\n⚡ ${emit.functionName || emit.trigger || 'emit()'}`,
                             shape: 'box',
-                            margin: 8,
-                            font: { color: '#f0fdf4', size: 11, face: 'sans-serif', align: 'left' },
+                            margin: 7,
+                            font: { color: '#f0fdf4', size: 10.5, face: 'sans-serif', align: 'center' },
                             color: {
                                 background: '#14532d',
                                 border: '#22c55e',
@@ -484,7 +561,7 @@
                                 hover: { background: '#15803d', border: '#4ade80' }
                             },
                             borderWidth: 1.5,
-                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 6, x: 0, y: 3 },
+                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 5, x: 0, y: 2 },
                             data: {
                                 type: 'EMITTER',
                                 emit: emit,
@@ -518,15 +595,19 @@
                 });
 
                 // 3. Listener Nodes & Outbound Edges (Track all connected event hubs)
-                item.listeners.forEach((list) => {
-                    const listNodeId = "list_" + list.file + "_" + list.node + "_" + list.className + "_" + list.property;
+                item.listeners.forEach((list, idx) => {
+                    const shortNode = getShortNode(list.node);
+                    const listIdSuffix = list.compId !== undefined ? list.compId : (list.property || idx);
+                    const listNodeId = "list_" + list.file + "_" + list.node + "_" + list.className + "_" + listIdSuffix;
+                    recordSameNode(list.file, list.node, listNodeId);
+
                     if (!nodeMap.has(listNodeId)) {
                         const listNode = {
                             id: listNodeId,
-                            label: `${list.node}/${list.className}\n🎧 ${list.boundMethod || list.property}()`,
+                            label: `${shortNode} · ${list.className}\n🎧 ${list.boundMethod || list.functionName || list.property}()`,
                             shape: 'box',
-                            margin: 8,
-                            font: { color: '#fdf4ff', size: 11, face: 'sans-serif', align: 'left' },
+                            margin: 7,
+                            font: { color: '#fdf4ff', size: 10.5, face: 'sans-serif', align: 'center' },
                             color: {
                                 background: '#581c87',
                                 border: '#c084fc',
@@ -534,7 +615,7 @@
                                 hover: { background: '#6b21a8', border: '#e879f9' }
                             },
                             borderWidth: 1.5,
-                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 6, x: 0, y: 3 },
+                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 5, x: 0, y: 2 },
                             data: {
                                 type: 'LISTENER',
                                 list: list,
@@ -568,15 +649,19 @@
                 });
 
                 // 4. Param Holder Nodes & Dashed Edges
-                item.params.forEach((param) => {
-                    const paramNodeId = "param_" + param.file + "_" + param.node + "_" + param.property;
+                item.params.forEach((param, idx) => {
+                    const shortNode = getShortNode(param.node);
+                    const paramIdSuffix = param.compId !== undefined ? param.compId : (param.property || idx);
+                    const paramNodeId = "param_" + param.file + "_" + param.node + "_" + param.className + "_" + paramIdSuffix;
+                    recordSameNode(param.file, param.node, paramNodeId);
+
                     if (!nodeMap.has(paramNodeId)) {
                         const paramNode = {
                             id: paramNodeId,
-                            label: `${param.node}/${param.className}\n📦 ${param.property}`,
+                            label: `${shortNode} · ${param.className}\n📦 ${param.property}`,
                             shape: 'box',
-                            margin: 8,
-                            font: { color: '#fffbeb', size: 11, face: 'sans-serif', align: 'left' },
+                            margin: 7,
+                            font: { color: '#fffbeb', size: 10.5, face: 'sans-serif', align: 'center' },
                             color: {
                                 background: '#78350f',
                                 border: '#f59e0b',
@@ -584,7 +669,7 @@
                                 hover: { background: '#92400e', border: '#fbbf24' }
                             },
                             borderWidth: 1.5,
-                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 6, x: 0, y: 3 },
+                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 5, x: 0, y: 2 },
                             data: {
                                 type: 'PARAM_HOLDER',
                                 param: param,
@@ -616,6 +701,31 @@
                         });
                     }
                 });
+            });
+
+            // 5. Connect components residing on the same Scene Node with subtle gray dashed lines (- - -)
+            sceneNodeToComponentIds.forEach((compIds, sceneKey) => {
+                if (compIds.length > 1) {
+                    for (let i = 0; i < compIds.length; i++) {
+                        for (let j = i + 1; j < compIds.length; j++) {
+                            const sameNodeEdgeId = `same_node_${compIds[i]}_${compIds[j]}`;
+                            if (!edgeSet.has(sameNodeEdgeId)) {
+                                edgeSet.add(sameNodeEdgeId);
+                                edges.push({
+                                    id: sameNodeEdgeId,
+                                    from: compIds[i],
+                                    to: compIds[j],
+                                    dashes: [4, 4],
+                                    color: { color: 'rgba(148, 163, 184, 0.45)', highlight: 'rgba(203, 213, 225, 0.8)', hover: 'rgba(203, 213, 225, 0.8)' },
+                                    width: 1.2,
+                                    arrows: { to: { enabled: false } },
+                                    smooth: { type: 'continuous', roundness: 0.2 },
+                                    physics: false
+                                });
+                            }
+                        }
+                    }
+                }
             });
 
             allNodes = nodes;
@@ -769,9 +879,11 @@
                 inspTitle.textContent = eventItem.name;
                 btnFocusLabel.textContent = `Focus '${eventItem.name}' in Assets`;
                 
-                inspPathRow.innerHTML = `<span class="text-slate-500">Path:</span> ${eventItem.path}`;
-                inspDetailRow.innerHTML = `<span class="text-slate-500">Domain:</span> ${eventItem.domain}`;
-                inspUuidRow.textContent = `UUID: ${eventItem.uuid}`;
+                inspPathRow.innerHTML = `
+                    <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200">${eventItem.path}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Domain:</span> <span class="text-sky-300">${eventItem.domainIcon || ''} ${eventItem.domain}</span></div>
+                    <div class="text-[11px] text-slate-500 pt-0.5"><span class="text-slate-600 font-semibold">UUID:</span> ${eventItem.uuid}</div>
+                `;
 
                 connectedHubsSection.classList.add('hidden');
 
@@ -831,12 +943,23 @@
                 inspBadge.textContent = 'EMITTER TRIGGER';
                 inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800';
 
-                inspTitle.textContent = `${emit.node}/${emit.className}/${emit.property}`;
+                inspTitle.textContent = `${emit.node}/${emit.className}${emit.bounceScript ? '/' + emit.bounceScript : ''}/${emit.functionName || 'emit'}`;
                 btnFocusLabel.textContent = `Focus '${emit.node}' in ${emit.file.endsWith('.prefab') ? 'Prefab' : 'Scene'}`;
 
-                inspPathRow.innerHTML = `<span class="text-emerald-400 font-semibold">⚡ Trigger:</span> <span class="text-white">${emit.trigger}</span>`;
-                inspDetailRow.innerHTML = `<span class="text-slate-500">File:</span> ${emit.file}<br/><span class="text-slate-500">Script:</span> ${emit.scriptFile}${emit.paramsPassed ? `<br/><span class="text-slate-500">Args:</span> <span class="text-emerald-300 font-mono">${emit.paramsPassed}</span>` : ''}`;
-                inspUuidRow.textContent = `Node: ${emit.node} | Property: ${emit.property}`;
+                const scriptBase = emit.scriptFile ? emit.scriptFile.split('/').pop() : '';
+                inspPathRow.innerHTML = `
+                    <div class="space-y-1.5 leading-relaxed">
+                        <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200 font-medium">${emit.file}</span></div>
+                        <div><span class="text-slate-500 font-semibold">Nodes:</span> <span class="text-emerald-400 font-bold">${emit.node}</span></div>
+                        <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-sky-300 font-bold">${emit.className}</span> <span class="text-slate-400 text-[11px]">[${scriptBase}]</span></div>
+                        ${emit.scriptFile && emit.scriptFile !== 'Unknown' ? `<div class="text-[11px] text-slate-400"><span class="text-slate-500">Script File:</span> ${emit.scriptFile}</div>` : ''}
+                        ${emit.bounceScript ? `<div><span class="text-amber-400 font-semibold">Bounce Script:</span> <span class="text-amber-300 font-bold">${emit.bounceScript}</span></div>` : ''}
+                        ${emit.bounces ? `<div class="pl-2.5 border-l-2 border-amber-600/70 my-1 py-0.5 text-[11px]"><span class="text-amber-400 font-semibold">Bounces:</span> <span class="text-amber-200/90 break-all">${emit.bounces}</span></div>` : ''}
+                        <div class="pl-2.5 border-l-2 border-emerald-600/70 my-1 py-0.5"><span class="text-emerald-400 font-semibold">Function:</span> <span class="text-white font-bold">${emit.functionName || 'emit()'}</span></div>
+                        <div><span class="text-slate-500 font-semibold">Property:</span> <span class="text-slate-300 font-mono">${emit.property}</span></div>
+                        <div class="text-[11px] pt-1.5 border-t border-slate-700/60"><span class="text-emerald-400 font-semibold">⚡ Trigger:</span> <span class="text-white font-bold">${emit.trigger}</span>${emit.paramsPassed ? `<br/><span class="text-emerald-300 font-mono">Args: (${emit.paramsPassed})</span>` : ''}</div>
+                    </div>
+                `;
 
                 // Connected Event Hubs List
                 if (connectedHubs.length > 0) {
@@ -907,12 +1030,24 @@
                 inspBadge.textContent = 'LISTENER HANDLER';
                 inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-purple-950 text-purple-400 border border-purple-800';
 
-                inspTitle.textContent = `${list.node}/${list.className}/${list.property}`;
+                inspTitle.textContent = `${list.node}/${list.className}${list.bounceScript ? '/' + list.bounceScript : ''}/${list.functionName || 'handle'}`;
                 btnFocusLabel.textContent = `Focus '${list.node}' in ${list.file.endsWith('.prefab') ? 'Prefab' : 'Scene'}`;
 
-                inspPathRow.innerHTML = `<span class="text-purple-300 font-semibold">🎧 Method:</span> <span class="text-white font-mono">${list.boundMethod || list.property}()</span>`;
-                inspDetailRow.innerHTML = `<span class="text-slate-500">File:</span> ${list.file}<br/><span class="text-slate-500">Script:</span> ${list.scriptFile}${list.methodSignature ? `<br/><span class="text-slate-500">Signature:</span> <span class="text-purple-300 font-mono">(${list.methodSignature})</span>` : ''}`;
-                inspUuidRow.textContent = `Node: ${list.node} | Bound Property: ${list.property}`;
+                const listScriptBase = list.scriptFile ? list.scriptFile.split('/').pop() : '';
+                inspPathRow.innerHTML = `
+                    <div class="space-y-1.5 leading-relaxed">
+                        <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200 font-medium">${list.file}</span></div>
+                        <div><span class="text-slate-500 font-semibold">Nodes:</span> <span class="text-purple-400 font-bold">${list.node}</span></div>
+                        <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-sky-300 font-bold">${list.className}</span> <span class="text-slate-400 text-[11px]">[${listScriptBase}]</span></div>
+                        ${list.scriptFile && list.scriptFile !== 'Unknown' ? `<div class="text-[11px] text-slate-400"><span class="text-slate-500">Script File:</span> ${list.scriptFile}</div>` : ''}
+                        ${list.bounceScript ? `<div><span class="text-amber-400 font-semibold">Bounce Script:</span> <span class="text-amber-300 font-bold">${list.bounceScript}</span></div>` : ''}
+                        ${list.bounces ? `<div class="pl-2.5 border-l-2 border-amber-600/70 my-1 py-0.5 text-[11px]"><span class="text-amber-400 font-semibold">Bounces:</span> <span class="text-amber-200/90 break-all">${list.bounces}</span></div>` : ''}
+                        <div class="pl-2.5 border-l-2 border-purple-600/70 my-1 py-0.5"><span class="text-purple-400 font-semibold">Function:</span> <span class="text-white font-bold">${list.functionName || list.boundMethod || list.property}()</span></div>
+                        ${list.boundMethod ? `<div><span class="text-slate-500 font-semibold">Bound Method:</span> <span class="text-purple-300 font-mono font-bold">${list.boundMethod}</span></div>` : ''}
+                        <div><span class="text-slate-500 font-semibold">Property:</span> <span class="text-slate-300 font-mono">${list.property}</span></div>
+                        ${list.methodSignature ? `<div class="text-[11px] text-purple-300 font-mono pt-1 border-t border-slate-700/60"><span class="text-slate-500">Signature:</span> (${list.methodSignature})</div>` : ''}
+                    </div>
+                `;
 
                 // Connected Event Hubs List
                 if (connectedHubs.length > 0) {
@@ -983,12 +1118,21 @@
                 inspBadge.textContent = 'PARAM HOLDER';
                 inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-amber-950 text-amber-400 border border-amber-800';
 
-                inspTitle.textContent = `${param.node}/${param.className}/${param.property}`;
+                inspTitle.textContent = `${param.node}/${param.className}${param.bounceScript ? '/' + param.bounceScript : ''}/${param.property}`;
                 btnFocusLabel.textContent = `Focus '${param.node}' in ${param.file.endsWith('.prefab') ? 'Prefab' : 'Scene'}`;
 
-                inspPathRow.innerHTML = `<span class="text-amber-400 font-semibold">📦 Property:</span> <span class="text-white font-mono">${param.property}</span>`;
-                inspDetailRow.innerHTML = `<span class="text-slate-500">File:</span> ${param.file}<br/><span class="text-slate-500">Script:</span> ${param.scriptFile}`;
-                inspUuidRow.textContent = `Node: ${param.node}`;
+                const paramScriptBase = param.scriptFile ? param.scriptFile.split('/').pop() : '';
+                inspPathRow.innerHTML = `
+                    <div class="space-y-1.5 leading-relaxed">
+                        <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200 font-medium">${param.file}</span></div>
+                        <div><span class="text-slate-500 font-semibold">Nodes:</span> <span class="text-amber-400 font-bold">${param.node}</span></div>
+                        <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-sky-300 font-bold">${param.className}</span> <span class="text-slate-400 text-[11px]">[${paramScriptBase}]</span></div>
+                        ${param.scriptFile && param.scriptFile !== 'Unknown' ? `<div class="text-[11px] text-slate-400"><span class="text-slate-500">Script File:</span> ${param.scriptFile}</div>` : ''}
+                        ${param.bounceScript ? `<div><span class="text-amber-400 font-semibold">Bounce Script:</span> <span class="text-amber-300 font-bold">${param.bounceScript}</span></div>` : ''}
+                        ${param.bounces ? `<div class="pl-2.5 border-l-2 border-amber-600/70 my-1 py-0.5 text-[11px]"><span class="text-amber-400 font-semibold">Bounces:</span> <span class="text-amber-200/90 break-all">${param.bounces}</span></div>` : ''}
+                        <div class="pl-2.5 border-l-2 border-amber-600/70 my-1 py-0.5"><span class="text-amber-400 font-semibold">Property:</span> <span class="text-white font-bold">${param.property}</span></div>
+                    </div>
+                `;
 
                 if (connectedHubs.length > 0) {
                     connectedHubsSection.classList.remove('hidden');
@@ -1009,7 +1153,8 @@
 
         function renderConnectedHubCard(hub) {
             const card = document.createElement('div');
-            card.className = "p-2.5 rounded-lg bg-sky-950/40 hover:bg-sky-900/50 border border-sky-800/60 hover:border-sky-500 flex items-center justify-between text-xs cursor-pointer transition-all group";
+            card.className = "p-2.5 rounded-lg bg-sky-950/40 hover:bg-sky-900/60 active:bg-sky-950 border border-sky-800/60 hover:border-sky-400 flex items-center justify-between text-xs cursor-pointer transition-all group shadow-sm";
+            card.title = "Click or double-click to focus this Event Hub in the graph";
             card.innerHTML = `
                 <div class="flex items-center gap-2 overflow-hidden">
                     <span class="text-sky-400 font-mono font-bold text-xs">🔗</span>
@@ -1023,17 +1168,43 @@
                 </button>
             `;
             card.addEventListener('click', () => {
-                focusNodeInGraph('evt_' + hub.uuid, 1.4);
+                focusNodeInGraph('evt_' + hub.uuid, 1.5);
+            });
+            card.addEventListener('dblclick', (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                focusNodeInGraph('evt_' + hub.uuid, 1.8);
             });
             return card;
         }
 
+        function findMatchingGraphNode(type, item) {
+            if (!allNodes || allNodes.length === 0) return null;
+            return allNodes.find(n => {
+                if (!n.data || n.data.type !== type) return false;
+                const d = n.data.emit || n.data.list || n.data.param;
+                if (!d) return false;
+                if (d.file !== item.file || d.node !== item.node || d.className !== item.className) return false;
+                if (item.compId !== undefined && d.compId !== undefined) {
+                    return d.compId === item.compId;
+                }
+                if (type === 'EMITTER') return (d.trigger === item.trigger || d.functionName === item.functionName);
+                if (type === 'LISTENER') return (d.property === item.property || d.boundMethod === item.boundMethod);
+                if (type === 'PARAM_HOLDER') return (d.property === item.property);
+                return true;
+            });
+        }
+
         function renderEmitterCard(e) {
             const el = document.createElement('div');
-            el.className = "p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 space-y-1.5";
+            el.className = "group p-3 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-800/60 hover:border-emerald-500/80 space-y-1.5 cursor-pointer transition-all shadow-sm";
+            el.title = "Double-click to focus on this Emitter node in the graph";
             el.innerHTML = `
                 <div class="flex items-center justify-between text-xs">
-                    <span class="font-bold text-emerald-400">${e.node}</span>
+                    <span class="font-bold text-emerald-400 group-hover:text-emerald-300 flex items-center gap-1">
+                        ${e.node}
+                        <span class="text-[9px] font-normal text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity">(dbl-click to focus)</span>
+                    </span>
                     <div class="flex items-center gap-1">
                         <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-300 font-mono">${e.className}</span>
                         <button class="mini-focus-btn p-1 rounded bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-all" title="Focus file in Cocos Creator">
@@ -1041,10 +1212,23 @@
                         </button>
                     </div>
                 </div>
-                <div class="text-xs text-slate-300 font-mono">⚡ ${e.trigger}</div>
+                <div class="text-xs text-slate-200 font-mono">⚡ ${e.trigger}</div>
                 <div class="text-[11px] text-slate-400 break-all">${e.file}</div>
-                ${e.paramsPassed ? `<div class="text-[10px] text-emerald-300 font-mono bg-emerald-950/80 p-1 rounded">Args: ${e.paramsPassed}</div>` : ''}
+                ${e.paramsPassed ? `<div class="text-[10px] text-emerald-300 font-mono bg-emerald-950/80 p-1 rounded border border-emerald-800/40">Args: ${e.paramsPassed}</div>` : ''}
             `;
+            
+            // Single click inspects if found, double click zooms in
+            el.addEventListener('dblclick', (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                const matched = findMatchingGraphNode('EMITTER', e);
+                if (matched) {
+                    focusNodeInGraph(matched.id, 1.8);
+                } else {
+                    sendFocusTarget({ file: e.file, node: e.node, scriptFile: e.scriptFile, type: 'emitter' });
+                }
+            });
+
             el.querySelector('.mini-focus-btn').addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 sendFocusTarget({ file: e.file, node: e.node, scriptFile: e.scriptFile, type: 'emitter' });
@@ -1054,10 +1238,14 @@
 
         function renderListenerCard(l) {
             const el = document.createElement('div');
-            el.className = "p-3 rounded-lg bg-purple-950/40 border border-purple-800/60 space-y-1.5";
+            el.className = "group p-3 rounded-lg bg-purple-950/40 hover:bg-purple-900/50 border border-purple-800/60 hover:border-purple-500/80 space-y-1.5 cursor-pointer transition-all shadow-sm";
+            el.title = "Double-click to focus on this Listener node in the graph";
             el.innerHTML = `
                 <div class="flex items-center justify-between text-xs">
-                    <span class="font-bold text-purple-300">${l.node}</span>
+                    <span class="font-bold text-purple-300 group-hover:text-purple-200 flex items-center gap-1">
+                        ${l.node}
+                        <span class="text-[9px] font-normal text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">(dbl-click to focus)</span>
+                    </span>
                     <div class="flex items-center gap-1">
                         <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200 font-mono">${l.className}</span>
                         <button class="mini-focus-btn p-1 rounded bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white transition-all" title="Focus file in Cocos Creator">
@@ -1065,10 +1253,23 @@
                         </button>
                     </div>
                 </div>
-                <div class="text-xs text-slate-300 font-mono">🎧 ${l.boundMethod || l.property}()</div>
+                <div class="text-xs text-slate-200 font-mono">🎧 ${l.boundMethod || l.property}()</div>
                 <div class="text-[11px] text-slate-400 break-all">${l.file}</div>
-                ${l.methodSignature ? `<div class="text-[10px] text-purple-300 font-mono bg-purple-950/80 p-1 rounded">Signature: (${l.methodSignature})</div>` : ''}
+                ${l.methodSignature ? `<div class="text-[10px] text-purple-300 font-mono bg-purple-950/80 p-1 rounded border border-purple-800/40">Signature: (${l.methodSignature})</div>` : ''}
             `;
+
+            // Single click inspects if found, double click zooms in
+            el.addEventListener('dblclick', (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                const matched = findMatchingGraphNode('LISTENER', l);
+                if (matched) {
+                    focusNodeInGraph(matched.id, 1.8);
+                } else {
+                    sendFocusTarget({ file: l.file, node: l.node, scriptFile: l.scriptFile, type: 'listener' });
+                }
+            });
+
             el.querySelector('.mini-focus-btn').addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 sendFocusTarget({ file: l.file, node: l.node, scriptFile: l.scriptFile, type: 'listener' });
@@ -1078,10 +1279,14 @@
 
         function renderParamCard(p) {
             const el = document.createElement('div');
-            el.className = "p-2.5 rounded-lg bg-amber-950/40 border border-amber-800/60 text-xs space-y-1.5";
+            el.className = "group p-2.5 rounded-lg bg-amber-950/40 hover:bg-amber-900/50 border border-amber-800/60 hover:border-amber-500/80 text-xs space-y-1.5 cursor-pointer transition-all shadow-sm";
+            el.title = "Double-click to focus on this Param node in the graph";
             el.innerHTML = `
                 <div class="flex items-center justify-between">
-                    <span class="font-bold text-amber-300">${p.node}</span>
+                    <span class="font-bold text-amber-300 group-hover:text-amber-200 flex items-center gap-1">
+                        ${p.node}
+                        <span class="text-[9px] font-normal text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">(dbl-click to focus)</span>
+                    </span>
                     <div class="flex items-center gap-1">
                         <span class="text-[10px] font-mono text-amber-400">${p.className}</span>
                         <button class="mini-focus-btn p-1 rounded bg-slate-800 hover:bg-amber-600 text-slate-300 hover:text-white transition-all" title="Focus file in Cocos Creator">
@@ -1089,9 +1294,21 @@
                         </button>
                     </div>
                 </div>
-                <div class="text-slate-300 font-mono">Property: ${p.property}</div>
+                <div class="text-slate-200 font-mono">Property: ${p.property}</div>
                 <div class="text-[11px] text-slate-400 break-all">${p.file}</div>
             `;
+
+            el.addEventListener('dblclick', (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                const matched = findMatchingGraphNode('PARAM_HOLDER', p);
+                if (matched) {
+                    focusNodeInGraph(matched.id, 1.8);
+                } else {
+                    sendFocusTarget({ file: p.file, node: p.node, scriptFile: p.scriptFile, type: 'param_holder' });
+                }
+            });
+
             el.querySelector('.mini-focus-btn').addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 sendFocusTarget({ file: p.file, node: p.node, scriptFile: p.scriptFile, type: 'param_holder' });
@@ -1285,11 +1502,21 @@
             }
         });
 
-        window.addEventListener('DOMContentLoaded', () => {
-            renderDynamicDomainFilters();
-            populateEventList();
-            initNetwork();
-        });
+        function startApp() {
+            try {
+                renderDynamicDomainFilters();
+                populateEventList();
+                initNetwork();
+            } catch (err) {
+                console.error("Error starting Event Nexus Visualizer:", err);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startApp);
+        } else {
+            startApp();
+        }
     </script>
 </body>
 </html>

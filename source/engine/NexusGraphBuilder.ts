@@ -1,50 +1,65 @@
-import * as fs from 'fs';
 import * as path from 'path';
+import * as fs from 'fs';
 import { CocosUuidUtils } from './CocosUuidUtils';
 import { TypeScriptAstAnalyzer, TsClassMetadata } from './TypeScriptAstAnalyzer';
-import { ScenePrefabScanner } from './ScenePrefabScanner';
 
-export interface NexusEmitter {
+export interface GraphEmitter {
     file: string;
     node: string;
+    compId?: number;
     className: string;
     scriptFile: string;
+    bounceScript?: string;
+    bounces?: string;
+    functionName: string;
     trigger: string;
     paramsPassed?: string;
     property: string;
 }
 
-export interface NexusListener {
+export interface GraphListener {
     file: string;
     node: string;
+    compId?: number;
     className: string;
     scriptFile: string;
+    bounceScript?: string;
+    bounces?: string;
+    functionName: string;
     property: string;
     boundMethod?: string;
     methodSignature?: string;
 }
 
-export interface NexusParamHolder {
+export interface GraphParam {
     file: string;
     node: string;
+    compId?: number;
     className: string;
     scriptFile: string;
+    bounceScript?: string;
+    bounces?: string;
+    functionName?: string;
     property: string;
 }
 
-export interface NexusEventNode {
+export interface EventNetworkCatalogItem {
     uuid: string;
     path: string;
     name: string;
     domain: string;
     domainIcon: string;
-    emitters: NexusEmitter[];
-    listeners: NexusListener[];
-    params: NexusParamHolder[];
+    emitters: GraphEmitter[];
+    listeners: GraphListener[];
+    params: GraphParam[];
+}
+
+export interface EventNetworkGraph {
+    catalog: Record<string, EventNetworkCatalogItem>;
 }
 
 export class NexusGraphBuilder {
-    public static async build(projectPath: string): Promise<Record<string, NexusEventNode>> {
+    public static async build(projectPath: string): Promise<EventNetworkGraph> {
         const searchDirs = [
             path.join(projectPath, 'assets'),
             path.join(projectPath, 'extensions')
@@ -118,48 +133,42 @@ export class NexusGraphBuilder {
             return null;
         };
 
-        // 3. Initialize event nodes catalog with smart dynamic domain extraction
-        const catalog: Record<string, NexusEventNode> = {};
+        // 3. Register all JsonAssets
+        const catalog: Record<string, EventNetworkCatalogItem> = {};
+
+        const getDomainMeta = (relPath: string) => {
+            const lower = relPath.toLowerCase();
+            if (lower.includes('gameplay') || lower.includes('match') || lower.includes('level')) {
+                return { domain: 'Match-3 Gameplay', icon: '🎮' };
+            } else if (lower.includes('ui') || lower.includes('screen') || lower.includes('popup') || lower.includes('dialog') || lower.includes('menu')) {
+                return { domain: 'UI Navigation', icon: '🖥️' };
+            } else if (lower.includes('data') || lower.includes('config') || lower.includes('storage') || lower.includes('param') || lower.includes('coin') || lower.includes('shop')) {
+                return { domain: 'Economy & Data', icon: '🪙' };
+            } else if (lower.includes('firebase') || lower.includes('auth') || lower.includes('network') || lower.includes('account')) {
+                return { domain: 'Firebase & Auth', icon: '🔥' };
+            } else if (lower.includes('ad') || lower.includes('reward') || lower.includes('banner') || lower.includes('interstitial')) {
+                return { domain: 'Ads System', icon: '📺' };
+            } else if (lower.includes('builder') || lower.includes('home') || lower.includes('decorate')) {
+                return { domain: 'Home Builder', icon: '🏗️' };
+            } else if (lower.includes('audio') || lower.includes('sound') || lower.includes('music')) {
+                return { domain: 'Audio & SFX', icon: '🎵' };
+            }
+
+            const parts = relPath.split('/');
+            if (parts.length > 2) {
+                const folder = parts[parts.length - 2];
+                const cleanFolder = folder.replace(/^[$_]+/, '').replace(/[-_]/g, ' ');
+                const capFolder = cleanFolder.charAt(0).toUpperCase() + cleanFolder.slice(1);
+                return { domain: capFolder, icon: '📁' };
+            }
+
+            return { domain: 'General Events', icon: '⚡' };
+        };
+
         for (const [uuid, p] of Object.entries(uuidToPath)) {
-            if (p.endsWith('.json') && (p.includes('events') || p.includes('params') || p.includes('id') || p.includes('json'))) {
+            if (p.endsWith('.json') && !p.includes('package.json') && !p.includes('tsconfig')) {
                 const name = path.basename(p);
-                const pathLower = p.toLowerCase();
-                let domain = 'Core / Other';
-                let domainIcon = '⚙️';
-
-                // Extract dynamic folder category
-                const normParts = p.replace(/\\/g, '/').split('/');
-                const evFolderIdx = normParts.findIndex(part => part.toLowerCase() === 'events' || part.toLowerCase() === 'params');
-
-                if (evFolderIdx !== -1 && evFolderIdx + 1 < normParts.length - 1) {
-                    const subFolder = normParts[evFolderIdx + 1];
-                    const subFolderLower = subFolder.toLowerCase();
-                    const words = subFolder.split(/[_-]/).map(w => w.toUpperCase() === 'UI' ? 'UI' : (w.charAt(0).toUpperCase() + w.slice(1)));
-                    domain = words.join(' ');
-
-                    if (subFolderLower.includes('ui')) { domain = 'UI Navigation'; domainIcon = '🖥️'; }
-                    else if (subFolderLower.includes('game') || subFolderLower.includes('level') || subFolderLower.includes('match')) { domain = 'Match-3 Gameplay'; domainIcon = '🎮'; }
-                    else if (subFolderLower.includes('ads')) { domain = 'Ads System'; domainIcon = '📺'; }
-                    else if (subFolderLower.includes('data') || subFolderLower.includes('economy') || subFolderLower.includes('coin') || subFolderLower.includes('star') || subFolderLower.includes('energy')) { domain = 'Economy & Data'; domainIcon = '🪙'; }
-                    else if (subFolderLower.includes('firebase') || subFolderLower.includes('auth')) { domain = 'Firebase & Auth'; domainIcon = '🔥'; }
-                    else if (subFolderLower.includes('builder') || subFolderLower.includes('decor')) { domain = 'Home Builder'; domainIcon = '🏗️'; }
-                    else if (subFolderLower.includes('sound') || subFolderLower.includes('audio') || subFolderLower.includes('music')) { domain = 'Audio System'; domainIcon = '🎵'; }
-                    else { domainIcon = '📁'; }
-                } else {
-                    if (pathLower.includes('events/ui') || name.toLowerCase().includes('ui')) {
-                        domain = 'UI Navigation'; domainIcon = '🖥️';
-                    } else if (pathLower.includes('events/game_play') || name.toLowerCase().includes('game') || name.toLowerCase().includes('level')) {
-                        domain = 'Match-3 Gameplay'; domainIcon = '🎮';
-                    } else if (pathLower.includes('events/ads') || name.toLowerCase().includes('ads')) {
-                        domain = 'Ads System'; domainIcon = '📺';
-                    } else if (pathLower.includes('events/data') || name.toLowerCase().includes('coin') || name.toLowerCase().includes('star') || name.toLowerCase().includes('energy') || pathLower.includes('params')) {
-                        domain = 'Economy & Data'; domainIcon = '🪙';
-                    } else if (pathLower.includes('events/firebase') || name.toLowerCase().includes('firebase')) {
-                        domain = 'Firebase & Auth'; domainIcon = '🔥';
-                    } else if (pathLower.includes('events/builder') || name.toLowerCase().includes('builder')) {
-                        domain = 'Home Builder'; domainIcon = '🏗️';
-                    }
-                }
+                const { domain, icon: domainIcon } = getDomainMeta(p);
 
                 catalog[uuid] = {
                     uuid,
@@ -174,25 +183,36 @@ export class NexusGraphBuilder {
             }
         }
 
-        // 4. Scan scenes and prefabs
+        // 4. Scan scenes and prefabs - Scan strictly node-attached components with deduplication
         const sceneAndPrefabExts = ['.scene', '.prefab'];
         for (const dir of searchDirs) {
             for (const ext of sceneAndPrefabExts) {
                 await walkFiles(dir, ext, async (filePath) => {
                     const relPath = path.relative(projectPath, filePath).replace(/\\/g, '/');
+                    const fileBase = path.basename(filePath, ext);
                     try {
                         const raw = await fs.promises.readFile(filePath, 'utf8');
                         const data = JSON.parse(raw);
                         if (!Array.isArray(data)) return;
 
+                        // Index nodes and find node-attached component IDs
                         const nodes: Record<number, any> = {};
+                        const nodeAttachedCompIds: Array<{ compId: number; nodeIdx: number }> = [];
+
                         for (let i = 0; i < data.length; i++) {
-                            if (data[i] && data[i].__type__ === 'cc.Node') {
-                                nodes[i] = data[i];
+                            const item = data[i];
+                            if (item && item.__type__ === 'cc.Node') {
+                                nodes[i] = item;
+                                if (Array.isArray(item._components)) {
+                                    for (const compRef of item._components) {
+                                        if (compRef && typeof compRef.__id__ === 'number') {
+                                            nodeAttachedCompIds.push({ compId: compRef.__id__, nodeIdx: i });
+                                        }
+                                    }
+                                }
                             }
                         }
 
-                        const fileBase = path.basename(filePath, ext);
                         const getNodePath = (nIdx: number): string => {
                             const pNodes: string[] = [];
                             let curr: number | null = nIdx;
@@ -209,20 +229,80 @@ export class NexusGraphBuilder {
                             return pNodes.join('/');
                         };
 
-                        for (const entry of data) {
+                        // Build set of all attached component IDs in this file
+                        const nodeAttachedCompSet = new Set<number>(nodeAttachedCompIds.map(c => c.compId));
+
+                        // Recursive Isolated Component Reference Tracer
+                        interface TraceStep {
+                            key: string;
+                            type?: string;
+                            obj: any;
+                        }
+
+                        interface TraceRefResult {
+                            uuid: string;
+                            chain: TraceStep[];
+                        }
+
+                        const traceComponentRefs = (obj: any, currentCompId: number, parentKey = '', chain: TraceStep[] = [], visited = new Set<number>()): TraceRefResult[] => {
+                            if (!obj || typeof obj !== 'object') return [];
+
+                            if (typeof obj.__id__ === 'number') {
+                                const objId = obj.__id__;
+                                if (visited.has(objId) || objId >= data.length) return [];
+                                visited.add(objId);
+                                const target = data[objId];
+                                if (!target || typeof target !== 'object') return [];
+
+                                // STRICT COMPONENT ISOLATION: Stop traversal if crossing into another attached Component
+                                if (objId !== currentCompId && nodeAttachedCompSet.has(objId)) {
+                                    return [];
+                                }
+
+                                const t = target.__type__ || '';
+                                // Stop traversal if crossing into other nodes, scenes, prefab info, or components
+                                if (t === 'cc.Node' || t.startsWith('cc.Scene') || t.startsWith('cc.PrefabInfo') || t.startsWith('cc.CompPrefabInfo') || (target.node && typeof target.node.__id__ === 'number' && objId !== currentCompId)) {
+                                    return [];
+                                }
+                                return traceComponentRefs(target, currentCompId, parentKey, chain, new Set(visited));
+                            }
+
+                            const results: TraceRefResult[] = [];
+                            if (obj.__uuid__) {
+                                results.push({
+                                    uuid: obj.__uuid__,
+                                    chain: [...chain, { key: parentKey, obj }]
+                                });
+                                return results;
+                            }
+
+                            const t = obj.__type__;
+
+                            if (Array.isArray(obj)) {
+                                for (let idx = 0; idx < obj.length; idx++) {
+                                    const k = `${parentKey}[${idx}]`;
+                                    results.push(...traceComponentRefs(obj[idx], currentCompId, k, [...chain, { key: k, type: t, obj }], new Set(visited)));
+                                }
+                            } else {
+                                for (const k of Object.keys(obj)) {
+                                    if (['_objFlags', '__editorExtras__', '_zid', '_prefab', 'node'].includes(k)) continue;
+                                    results.push(...traceComponentRefs(obj[k], currentCompId, k, [...chain, { key: k, type: t, obj }], new Set(visited)));
+                                }
+                            }
+
+                            return results;
+                        };
+
+                        // Scan ONLY components attached to actual nodes
+                        for (const { compId, nodeIdx } of nodeAttachedCompIds) {
+                            const entry = data[compId];
                             if (!entry || typeof entry !== 'object') continue;
                             const t = entry.__type__;
                             if (!t || t.startsWith('cc.Scene') || t.startsWith('cc.PrefabInfo') || t.startsWith('cc.CompPrefabInfo') || t === 'cc.Node') {
                                 continue;
                             }
 
-                            const nodeRef = entry.node;
-                            let rawPath = 'Root';
-                            if (nodeRef && typeof nodeRef.__id__ === 'number' && nodes[nodeRef.__id__]) {
-                                rawPath = getNodePath(nodeRef.__id__);
-                            }
-
-                            // Format clean explicit node identifier (replace generic 'Root' with actual prefab/scene name)
+                            const rawPath = getNodePath(nodeIdx);
                             let nodePath = rawPath;
                             if (nodePath === 'Root' || !nodePath) {
                                 nodePath = fileBase;
@@ -234,163 +314,226 @@ export class NexusGraphBuilder {
                             const className = compMeta ? compMeta.className : t;
                             const scriptFile = compMeta ? compMeta.filePath : 'Unknown';
 
-                            // Check helpers (Event_Driver)
-                            const helpers = entry._helpers || entry.helpers;
-                            if (Array.isArray(helpers)) {
-                                for (const hRef of helpers) {
-                                    const hObj = hRef && typeof hRef.__id__ === 'number' ? data[hRef.__id__] : hRef;
-                                    if (hObj && typeof hObj === 'object') {
-                                        const hKey = hObj.key || '';
-                                        const flexRef = hObj.flex;
-                                        const flexObj = flexRef && typeof flexRef.__id__ === 'number' ? data[flexRef.__id__] : flexRef;
-                                        if (flexObj && typeof flexObj === 'object') {
-                                            const jUuids = ScenePrefabScanner.findJsonUuids(flexObj.json, data);
-                                            for (const juuid of jUuids) {
-                                                if (catalog[juuid]) {
-                                                    let argsPassed = '';
-                                                    if (compMeta) {
-                                                        const emitItem = compMeta.eventEmits.find(e => e.bounceKey === hKey);
-                                                        if (emitItem) argsPassed = emitItem.argsPassed;
-                                                    }
-                                                    catalog[juuid].emitters.push({
-                                                        file: relPath,
-                                                        node: nodePath,
-                                                        className,
-                                                        scriptFile,
-                                                        trigger: `Event_Driver.emit('${hKey}')`,
-                                                        paramsPassed: argsPassed,
-                                                        property: `helpers[${hKey}]`
-                                                    });
-                                                }
-                                            }
+                            // Deep trace all JsonAsset references attached to this component
+                            const refResults = traceComponentRefs(entry, compId, 'root');
+
+                            for (const ref of refResults) {
+                                const juuid = ref.uuid;
+                                if (!catalog[juuid]) continue;
+
+                                const chainSteps = ref.chain;
+                                const rawRootProp = chainSteps.length > 0 ? chainSteps[0].key : 'property';
+                                const rootProp = rawRootProp.replace(/\[\d+\]/g, ''); // strip index like _helpers[1] -> _helpers
+
+                                // Find custom inner types
+                                const customTypes = chainSteps.filter(c => c.type && !c.type.startsWith('cc.') && c.type !== t);
+                                let bounceScript = '';
+                                if (customTypes.length > 0) {
+                                    bounceScript = customTypes[customTypes.length - 1].type || '';
+                                }
+
+                                // Build clean Bounces representation string
+                                let bounces = '';
+                                if (chainSteps.length > 1) {
+                                    const segments: string[] = [];
+                                    for (const step of chainSteps) {
+                                        if (step.key === 'root' || step.key.startsWith('json')) continue;
+                                        if (step.type && !step.type.startsWith('cc.')) {
+                                            segments.push(`${step.key}[${step.type}]`);
+                                        } else {
+                                            segments.push(step.key);
                                         }
                                     }
-                                }
-                            }
-
-                            // Check Smart_Button onClicks
-                            if (entry.onClicks) {
-                                const jUuids = ScenePrefabScanner.findJsonUuids(entry.onClicks, data);
-                                for (const juuid of jUuids) {
-                                    if (catalog[juuid]) {
-                                        catalog[juuid].emitters.push({
-                                            file: relPath,
-                                            node: nodePath,
-                                            className,
-                                            scriptFile,
-                                            trigger: 'Smart_Button.onClick',
-                                            paramsPassed: 'event / button',
-                                            property: 'onClicks'
-                                        });
+                                    if (segments.length > 0) {
+                                        bounces = segments.join('.');
                                     }
                                 }
-                            }
 
-                            // Check all properties
-                            for (const propName of Object.keys(entry)) {
-                                if (['_helpers', 'helpers', 'onClicks', '_objFlags', 'node', '__prefab'].includes(propName)) continue;
-                                const jUuids = ScenePrefabScanner.findJsonUuids(entry[propName], data);
-                                if (!jUuids || jUuids.length === 0) continue;
-
+                                // Classify Emitter vs Listener vs Param with strict precision
                                 let isListener = false;
+                                let isEmitter = false;
                                 let boundMethod: string | undefined;
                                 let methodSignature = '';
+                                let functionName = '';
+                                let trigger = '';
+                                let paramsPassed = '';
 
-                                if (compMeta) {
-                                    const addItem = compMeta.eventAdds.find(a => a.property === propName);
+                                // 1. Priority 1: Check if helper/emitter object in chain (_helpers, onClicks, Event_Driver, UI_Controller._Helper)
+                                const helperStep = chainSteps.find(c => c.obj && (c.obj.key || c.obj.id || (c.type && (c.type.includes('Helper') || c.type.includes('Flexer')))));
+                                const helperObj = helperStep?.obj;
+
+                                if (rootProp.startsWith('onClicks') || className === 'Smart_Button') {
+                                    isEmitter = true;
+                                    functionName = 'onClick';
+                                    trigger = `${className}.onClick`;
+                                    paramsPassed = 'event / button';
+                                    bounceScript = bounceScript || 'Smart_Button';
+                                    bounces = bounces || 'onClicks[Smart_Button]{flex[Event_Flexer].json}';
+                                } else if (helperObj && (helperObj.key || helperObj.id || rootProp.startsWith('_helpers') || rootProp.startsWith('helpers'))) {
+                                    isEmitter = true;
+                                    const hKey = helperObj.key || '';
+                                    const hId = helperObj.id || '';
+                                    const callTarget = hId ? `'${hId}'` : (hKey ? `'${hKey}'` : '');
+                                    
+                                    if (hKey && hId) {
+                                        functionName = `${hKey}('${hId}')`;
+                                        trigger = `${className}.${hKey}('${hId}')`;
+                                    } else if (hKey) {
+                                        functionName = `${hKey}()`;
+                                        trigger = `${className}.${hKey}()`;
+                                    } else if (hId) {
+                                        functionName = `emit('${hId}')`;
+                                        trigger = `${className}.emit('${hId}')`;
+                                    } else {
+                                        functionName = 'emit()';
+                                        trigger = `${className}.emit('event')`;
+                                    }
+                                    bounceScript = helperStep?.type || bounceScript || 'UI_Controller._Helper';
+                                    bounces = bounces || `_helpers[${bounceScript}]{id: ${hId || hKey}, flex[Event_Flexer].json}`;
+                                }
+
+                                // 2. Priority 2: Explicit AST Analysis from TypeScript Source
+                                if (!isListener && !isEmitter && compMeta) {
+                                    const addItem = compMeta.eventAdds.find(a => a.property === rootProp || chainSteps.some(c => c.key.includes(a.property)));
                                     if (addItem) {
                                         isListener = true;
                                         boundMethod = addItem.callback;
+                                        functionName = `${addItem.callback}()`;
                                         methodSignature = compMeta.methods[addItem.callback] || '';
                                     }
-                                }
-
-                                let isEmitter = false;
-                                let invokeArgs = '';
-                                if (compMeta) {
-                                    const invItem = compMeta.eventInvokes.find(i => i.property === propName);
+                                    const invItem = compMeta.eventInvokes.find(i => i.property === rootProp || chainSteps.some(c => c.key.includes(i.property)));
                                     if (invItem) {
                                         isEmitter = true;
-                                        invokeArgs = invItem.argsPassed;
+                                        functionName = `${rootProp}()`;
+                                        trigger = `pEngine.Json.event.invoke(${rootProp})`;
+                                        paramsPassed = invItem.argsPassed;
                                     }
                                 }
 
-                                for (const juuid of jUuids) {
-                                    if (!catalog[juuid]) continue;
-                                    if (isListener) {
-                                        catalog[juuid].listeners.push({
-                                            file: relPath,
-                                            node: nodePath,
-                                            className,
-                                            scriptFile,
-                                            property: propName,
-                                            boundMethod,
-                                            methodSignature
-                                        });
-                                    } else if (isEmitter) {
+                                // 3. Priority 3: Framework Known Patterns (Smart_StartUp, Ads_Manager, Config_Global)
+                                if (!isListener && !isEmitter) {
+                                    if (rootProp === 'starters') {
+                                        isListener = true;
+                                        boundMethod = 'execute';
+                                        functionName = 'execute()';
+                                    } else if (rootProp === 'stoppers') {
+                                        isListener = true;
+                                        boundMethod = 'stop';
+                                        functionName = 'stop()';
+                                    } else if (rootProp === 'pausers') {
+                                        isListener = true;
+                                        boundMethod = 'pause';
+                                        functionName = 'pause()';
+                                    } else if (rootProp === 'resumers') {
+                                        isListener = true;
+                                        boundMethod = 'resume';
+                                        functionName = 'resume()';
+                                    } else if (rootProp === 'destroyers') {
+                                        isListener = true;
+                                        boundMethod = 'actSafeDestroy';
+                                        functionName = 'actSafeDestroy()';
+                                    } else if (rootProp === 'actShowBannerAds') {
+                                        isListener = true;
+                                        boundMethod = 'showBannerAds';
+                                        functionName = 'showBannerAds()';
+                                    } else if (rootProp === 'onShowRewardAds') {
+                                        isListener = true;
+                                        boundMethod = 'showRewardAds';
+                                        functionName = 'showRewardAds()';
+                                    } else if (rootProp === 'onShowInterstitialAds') {
+                                        isListener = true;
+                                        boundMethod = 'showInterstitialAds';
+                                        functionName = 'showInterstitialAds()';
+                                    } else if (className.includes('Config_Global') || className.includes('GlobalTTF')) {
+                                        const hasListeners = chainSteps.some(c => c.key.includes('listeners'));
+                                        const hasParam = chainSteps.some(c => c.key.includes('param'));
+                                        if (hasListeners) {
+                                            isListener = true;
+                                            boundMethod = 'init';
+                                            functionName = 'init()';
+                                            bounceScript = bounceScript || 'Config_Global_Hook';
+                                            bounces = bounces || '_Config[Config_Global_Config]._hookers{_Hook[Config_Global_Hook].listeners}';
+                                        } else if (hasParam) {
+                                            functionName = 'param';
+                                        }
+                                    }
+                                }
+
+                                // 4. Priority 4: Property Name Semantics
+                                if (!isListener && !isEmitter) {
+                                    if (rootProp.startsWith('act') || rootProp.startsWith('on') || rootProp.startsWith('evt') || rootProp.startsWith('listen')) {
+                                        isListener = true;
+                                        boundMethod = rootProp;
+                                        functionName = `${rootProp}()`;
+                                    } else if (rootProp === 'param' || rootProp === 'pool' || rootProp === 'data' || rootProp === 'hid' || rootProp === 'id' || catalog[juuid].path.includes('params')) {
+                                        functionName = rootProp;
+                                        const paramKey = `${relPath}|${nodePath}|${compId}|${className}|${rootProp}`;
+                                        const isAlreadyInCatalog = catalog[juuid].params.some(p => p.file === relPath && p.node === nodePath && p.compId === compId && p.className === className && p.property === rootProp);
+                                        if (!isAlreadyInCatalog) {
+                                            catalog[juuid].params.push({
+                                                file: relPath,
+                                                node: nodePath,
+                                                compId,
+                                                className,
+                                                scriptFile,
+                                                bounceScript: bounceScript || undefined,
+                                                bounces: bounces || undefined,
+                                                functionName,
+                                                property: rootProp
+                                            });
+                                        }
+                                        continue;
+                                    } else {
+                                        isListener = true;
+                                        boundMethod = rootProp;
+                                        functionName = `${rootProp}()`;
+                                    }
+                                }
+
+                                if (isEmitter) {
+                                    const isAlreadyInCatalog = catalog[juuid].emitters.some(e => e.file === relPath && e.node === nodePath && e.compId === compId && e.className === className && e.trigger === trigger);
+                                    if (!isAlreadyInCatalog) {
                                         catalog[juuid].emitters.push({
                                             file: relPath,
                                             node: nodePath,
+                                            compId,
                                             className,
                                             scriptFile,
-                                            trigger: `pEngine.Json.event.invoke(${propName})`,
-                                            paramsPassed: invokeArgs,
-                                            property: propName
+                                            bounceScript: bounceScript || undefined,
+                                            bounces: bounces || undefined,
+                                            functionName: functionName || 'emit()',
+                                            trigger: trigger || `${className}.emit()`,
+                                            paramsPassed: paramsPassed || undefined,
+                                            property: rootProp
                                         });
-                                    } else if (propName.startsWith('act') || propName.startsWith('on') || propName.startsWith('evt')) {
+                                    }
+                                } else if (isListener) {
+                                    const isAlreadyInCatalog = catalog[juuid].listeners.some(l => l.file === relPath && l.node === nodePath && l.compId === compId && l.className === className && (l.boundMethod === (boundMethod || functionName) || l.property === rootProp));
+                                    if (!isAlreadyInCatalog) {
                                         catalog[juuid].listeners.push({
                                             file: relPath,
                                             node: nodePath,
+                                            compId,
                                             className,
                                             scriptFile,
-                                            property: propName,
-                                            boundMethod: boundMethod || `implicit handler for ${propName}`,
-                                            methodSignature
-                                        });
-                                    } else {
-                                        catalog[juuid].params.push({
-                                            file: relPath,
-                                            node: nodePath,
-                                            className,
-                                            scriptFile,
-                                            property: propName
+                                            bounceScript: bounceScript || undefined,
+                                            bounces: bounces || undefined,
+                                            functionName: functionName || 'handle()',
+                                            property: rootProp,
+                                            boundMethod: boundMethod || functionName,
+                                            methodSignature: methodSignature || undefined
                                         });
                                     }
                                 }
                             }
                         }
-                    } catch {}
+                    } catch (err) {
+                        console.error(`Error scanning ${filePath}:`, err);
+                    }
                 });
             }
         }
 
-        // Deduplicate
-        for (const item of Object.values(catalog)) {
-            const seenE = new Set<string>();
-            item.emitters = item.emitters.filter(e => {
-                const k = `${e.file}|${e.node}|${e.className}|${e.trigger}`;
-                if (seenE.has(k)) return false;
-                seenE.add(k);
-                return true;
-            });
-
-            const seenL = new Set<string>();
-            item.listeners = item.listeners.filter(l => {
-                const k = `${l.file}|${l.node}|${l.className}|${l.property}|${l.boundMethod}`;
-                if (seenL.has(k)) return false;
-                seenL.add(k);
-                return true;
-            });
-
-            const seenP = new Set<string>();
-            item.params = item.params.filter(p => {
-                const k = `${p.file}|${p.node}|${p.className}|${p.property}`;
-                if (seenP.has(k)) return false;
-                seenP.add(k);
-                return true;
-            });
-        }
-
-        return catalog;
+        return { catalog };
     }
 }

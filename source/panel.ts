@@ -95,9 +95,13 @@ async function reloadGraph(thisAny: any) {
         const html = generateVisualizerHtml(graph);
         
         if (thisAny && thisAny.$.frame) {
-            const blob = new Blob([html], { type: 'text/html' });
-            const blobUrl = URL.createObjectURL(blob);
-            thisAny.$.frame.src = blobUrl;
+            try {
+                thisAny.$.frame.srcdoc = html;
+            } catch {
+                const blob = new Blob([html], { type: 'text/html' });
+                const blobUrl = URL.createObjectURL(blob);
+                thisAny.$.frame.src = blobUrl;
+            }
         }
     } catch (e) {
         console.error(`[${pkg.name}] Error loading graph:`, e);

@@ -21,6 +21,8 @@ export function generateVisualizerHtml(networkData: any): string {
         throw new Error('[pts-nexus] Could not find visualizer.html template');
     }
 
-    const dataJson = JSON.stringify(networkData);
+    // Unwrap catalog if wrapped in { catalog: ... }
+    const rawCatalog = (networkData && networkData.catalog) ? networkData.catalog : (networkData || {});
+    const dataJson = JSON.stringify(rawCatalog);
     return template.replace('__NETWORK_DATA_PLACEHOLDER__', dataJson);
 }
