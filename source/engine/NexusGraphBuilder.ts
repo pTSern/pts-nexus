@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { CocosUuidUtils } from './CocosUuidUtils';
-import { TypeScriptAstAnalyzer, TsClassMetadata } from './TypeScriptAstAnalyzer';
+import { TypeRegistry } from './TypeRegistry';
 
 export interface GraphEmitter {
     file: string;
@@ -60,12 +60,17 @@ export interface EventNetworkGraph {
 
 export class NexusGraphBuilder {
     public static async build(projectPath: string): Promise<EventNetworkGraph> {
+        // 1. Build TypeRegistry in RAM (Indexed ground-truth pEngine.Json calls & inheritance)
+        await TypeRegistry.build(projectPath);
+
         const searchDirs = [
             path.join(projectPath, 'assets'),
             path.join(projectPath, 'extensions')
         ];
 
-        // 1. Build UUID -> File path map from .meta files
+        const skipDirs = new Set(['node_modules', 'dist', '.git', 'library', 'temp', 'local', 'profiles', 'build']);
+
+        // 2. Build UUID -> File path map from .meta files
         const uuidToPath: Record<string, string> = {};
         const pathToUuid: Record<string, string> = {};
 
@@ -75,7 +80,7 @@ export class NexusGraphBuilder {
             for (const entry of entries) {
                 const fullPath = path.join(dir, entry.name);
                 if (entry.isDirectory()) {
-                    if (!['node_modules', '.git', 'temp', 'library', 'local', 'profiles', 'dist'].includes(entry.name)) {
+                    if (!skipDirs.has(entry.name)) {
                         await walkFiles(fullPath, ext, callback);
                     }
                 } else if (entry.isFile() && entry.name.endsWith(ext)) {
@@ -99,41 +104,7 @@ export class NexusGraphBuilder {
             });
         }
 
-        // 2. Parse TypeScript files
-        const tsByFile: Record<string, TsClassMetadata> = {};
-        const tsByUuid: Record<string, TsClassMetadata> = {};
-        const tsByClass: Record<string, TsClassMetadata> = {};
-
-        for (const dir of searchDirs) {
-            await walkFiles(dir, '.ts', async (tsPath) => {
-                if (tsPath.endsWith('.d.ts')) return;
-                try {
-                    const content = await fs.promises.readFile(tsPath, 'utf8');
-                    const relPath = path.relative(projectPath, tsPath).replace(/\\/g, '/');
-                    const meta = TypeScriptAstAnalyzer.analyzeSource(content, relPath);
-                    if (meta) {
-                        tsByFile[relPath] = meta;
-                        const uuid = pathToUuid[relPath];
-                        if (uuid) tsByUuid[uuid] = meta;
-                        if (meta.ccclass) tsByClass[meta.ccclass] = meta;
-                        if (meta.className) tsByClass[meta.className] = meta;
-                    }
-                } catch {}
-            });
-        }
-
-        const resolveComp = (compType: string): TsClassMetadata | null => {
-            if (!compType) return null;
-            if (tsByClass[compType]) return tsByClass[compType];
-            const decomp = CocosUuidUtils.decompressUuid(compType);
-            if (tsByUuid[decomp]) return tsByUuid[decomp];
-            if (tsByUuid[compType]) return tsByUuid[compType];
-            const p = uuidToPath[decomp] || uuidToPath[compType];
-            if (p && tsByFile[p]) return tsByFile[p];
-            return null;
-        };
-
-        // 3. Register all JsonAssets
+        // 3. Register all JsonAssets into catalog
         const catalog: Record<string, EventNetworkCatalogItem> = {};
 
         const getDomainMeta = (relPath: string) => {
@@ -183,7 +154,7 @@ export class NexusGraphBuilder {
             }
         }
 
-        // 4. Scan scenes and prefabs - Scan strictly node-attached components with deduplication
+        // 4. Scan scenes and prefabs - Scan strictly node-attached components with TypeRegistry ground truth
         const sceneAndPrefabExts = ['.scene', '.prefab'];
         for (const dir of searchDirs) {
             for (const ext of sceneAndPrefabExts) {
@@ -229,7 +200,6 @@ export class NexusGraphBuilder {
                             return pNodes.join('/');
                         };
 
-                        // Build set of all attached component IDs in this file
                         const nodeAttachedCompSet = new Set<number>(nodeAttachedCompIds.map(c => c.compId));
 
                         // Recursive Isolated Component Reference Tracer
@@ -310,9 +280,9 @@ export class NexusGraphBuilder {
                                 nodePath = fileBase + nodePath.substring(4);
                             }
 
-                            const compMeta = resolveComp(t);
-                            const className = compMeta ? compMeta.className : t;
-                            const scriptFile = compMeta ? compMeta.filePath : 'Unknown';
+                            const resolvedClass = TypeRegistry.resolveClass(t);
+                            const className = resolvedClass ? resolvedClass.className : t;
+                            const scriptFile = resolvedClass ? resolvedClass.file : 'Unknown';
 
                             // Deep trace all JsonAsset references attached to this component
                             const refResults = traceComponentRefs(entry, compId, 'root');
@@ -323,7 +293,7 @@ export class NexusGraphBuilder {
 
                                 const chainSteps = ref.chain;
                                 const rawRootProp = chainSteps.length > 0 ? chainSteps[0].key : 'property';
-                                const rootProp = rawRootProp.replace(/\[\d+\]/g, ''); // strip index like _helpers[1] -> _helpers
+                                const rootProp = rawRootProp.replace(/\[\d+\]/g, ''); // strip array index
 
                                 // Find custom inner types
                                 const customTypes = chainSteps.filter(c => c.type && !c.type.startsWith('cc.') && c.type !== t);
@@ -349,26 +319,30 @@ export class NexusGraphBuilder {
                                     }
                                 }
 
-                                // Classify Emitter vs Listener vs Param with strict precision
+                                // Classify Emitter vs Listener vs Param via Ground Truth TypeRegistry
                                 let isListener = false;
                                 let isEmitter = false;
+                                let isParam = false;
                                 let boundMethod: string | undefined;
                                 let methodSignature = '';
                                 let functionName = '';
                                 let trigger = '';
                                 let paramsPassed = '';
 
-                                // 1. Priority 1: Check if helper/emitter object in chain (_helpers, onClicks, Event_Driver, UI_Controller._Helper)
+                                // 1. Check if the root property is an Event_Flexer or Event_Driver Helper (Pure Emitters)
+                                const propMeta = resolvedClass?.properties[rootProp];
+                                const isFlexerProp = propMeta?.isEventFlexer || chainSteps.some(c => c.type === 'Event_Flexer');
+                                const isIdSelectorProp = propMeta?.isIdSelector || chainSteps.some(c => c.type?.includes('IdSelector'));
+
                                 const helperStep = chainSteps.find(c => c.obj && (c.obj.key || c.obj.id || (c.type && (c.type.includes('Helper') || c.type.includes('Flexer')))));
                                 const helperObj = helperStep?.obj;
 
-                                if (rootProp.startsWith('onClicks') || className === 'Smart_Button') {
+                                if (isFlexerProp || rootProp === 'onClicks' || className === 'Smart_Button') {
                                     isEmitter = true;
-                                    functionName = 'onClick';
-                                    trigger = `${className}.onClick`;
-                                    paramsPassed = 'event / button';
-                                    bounceScript = bounceScript || 'Smart_Button';
-                                    bounces = bounces || 'onClicks[Smart_Button]{flex[Event_Flexer].json}';
+                                    functionName = rootProp === 'onClicks' ? 'onClick' : `${rootProp}()`;
+                                    trigger = `${className}.${rootProp}`;
+                                    bounceScript = bounceScript || 'Event_Flexer';
+                                    bounces = bounces || `${rootProp}[Event_Flexer].json`;
                                 } else if (helperObj && (helperObj.key || helperObj.id || rootProp.startsWith('_helpers') || rootProp.startsWith('helpers'))) {
                                     isEmitter = true;
                                     const hKey = helperObj.key || '';
@@ -392,59 +366,27 @@ export class NexusGraphBuilder {
                                     bounces = bounces || `_helpers[${bounceScript}]{id: ${hId || hKey}, flex[Event_Flexer].json}`;
                                 }
 
-                                // 2. Priority 2: Explicit AST Analysis from TypeScript Source
-                                if (!isListener && !isEmitter && compMeta) {
-                                    const addItem = compMeta.eventAdds.find(a => a.property === rootProp || chainSteps.some(c => c.key.includes(a.property)));
-                                    if (addItem) {
+                                // 2. Check Ground Truth Registered Listeners in TypeRegistry
+                                if (!isListener && !isEmitter && resolvedClass) {
+                                    if (resolvedClass.listeners[rootProp]) {
                                         isListener = true;
-                                        boundMethod = addItem.callback;
-                                        functionName = `${addItem.callback}()`;
-                                        methodSignature = compMeta.methods[addItem.callback] || '';
-                                    }
-                                    const invItem = compMeta.eventInvokes.find(i => i.property === rootProp || chainSteps.some(c => c.key.includes(i.property)));
-                                    if (invItem) {
+                                        boundMethod = resolvedClass.listeners[rootProp];
+                                        functionName = `${boundMethod}()`;
+                                        methodSignature = resolvedClass.methods[boundMethod] || '';
+                                    } else if (resolvedClass.emitters[rootProp] !== undefined) {
                                         isEmitter = true;
                                         functionName = `${rootProp}()`;
                                         trigger = `pEngine.Json.event.invoke(${rootProp})`;
-                                        paramsPassed = invItem.argsPassed;
+                                        paramsPassed = resolvedClass.emitters[rootProp];
+                                    } else if (resolvedClass.params[rootProp] || isIdSelectorProp) {
+                                        isParam = true;
+                                        functionName = rootProp;
                                     }
                                 }
 
-                                // 3. Priority 3: Framework Known Patterns (Smart_StartUp, Ads_Manager, Config_Global)
-                                if (!isListener && !isEmitter) {
-                                    if (rootProp === 'starters') {
-                                        isListener = true;
-                                        boundMethod = 'execute';
-                                        functionName = 'execute()';
-                                    } else if (rootProp === 'stoppers') {
-                                        isListener = true;
-                                        boundMethod = 'stop';
-                                        functionName = 'stop()';
-                                    } else if (rootProp === 'pausers') {
-                                        isListener = true;
-                                        boundMethod = 'pause';
-                                        functionName = 'pause()';
-                                    } else if (rootProp === 'resumers') {
-                                        isListener = true;
-                                        boundMethod = 'resume';
-                                        functionName = 'resume()';
-                                    } else if (rootProp === 'destroyers') {
-                                        isListener = true;
-                                        boundMethod = 'actSafeDestroy';
-                                        functionName = 'actSafeDestroy()';
-                                    } else if (rootProp === 'actShowBannerAds') {
-                                        isListener = true;
-                                        boundMethod = 'showBannerAds';
-                                        functionName = 'showBannerAds()';
-                                    } else if (rootProp === 'onShowRewardAds') {
-                                        isListener = true;
-                                        boundMethod = 'showRewardAds';
-                                        functionName = 'showRewardAds()';
-                                    } else if (rootProp === 'onShowInterstitialAds') {
-                                        isListener = true;
-                                        boundMethod = 'showInterstitialAds';
-                                        functionName = 'showInterstitialAds()';
-                                    } else if (className.includes('Config_Global') || className.includes('GlobalTTF')) {
+                                // 3. Framework specific composite hookers (e.g. Config_Global)
+                                if (!isListener && !isEmitter && !isParam) {
+                                    if (className.includes('Config_Global') || className.includes('GlobalTTF')) {
                                         const hasListeners = chainSteps.some(c => c.key.includes('listeners'));
                                         const hasParam = chainSteps.some(c => c.key.includes('param'));
                                         if (hasListeners) {
@@ -454,40 +396,44 @@ export class NexusGraphBuilder {
                                             bounceScript = bounceScript || 'Config_Global_Hook';
                                             bounces = bounces || '_Config[Config_Global_Config]._hookers{_Hook[Config_Global_Hook].listeners}';
                                         } else if (hasParam) {
+                                            isParam = true;
                                             functionName = 'param';
                                         }
                                     }
                                 }
 
-                                // 4. Priority 4: Property Name Semantics
-                                if (!isListener && !isEmitter) {
+                                // 4. Fallback Semantic conventions
+                                if (!isListener && !isEmitter && !isParam) {
                                     if (rootProp.startsWith('act') || rootProp.startsWith('on') || rootProp.startsWith('evt') || rootProp.startsWith('listen')) {
                                         isListener = true;
                                         boundMethod = rootProp;
                                         functionName = `${rootProp}()`;
                                     } else if (rootProp === 'param' || rootProp === 'pool' || rootProp === 'data' || rootProp === 'hid' || rootProp === 'id' || catalog[juuid].path.includes('params')) {
+                                        isParam = true;
                                         functionName = rootProp;
-                                        const paramKey = `${relPath}|${nodePath}|${compId}|${className}|${rootProp}`;
-                                        const isAlreadyInCatalog = catalog[juuid].params.some(p => p.file === relPath && p.node === nodePath && p.compId === compId && p.className === className && p.property === rootProp);
-                                        if (!isAlreadyInCatalog) {
-                                            catalog[juuid].params.push({
-                                                file: relPath,
-                                                node: nodePath,
-                                                compId,
-                                                className,
-                                                scriptFile,
-                                                bounceScript: bounceScript || undefined,
-                                                bounces: bounces || undefined,
-                                                functionName,
-                                                property: rootProp
-                                            });
-                                        }
-                                        continue;
                                     } else {
                                         isListener = true;
                                         boundMethod = rootProp;
                                         functionName = `${rootProp}()`;
                                     }
+                                }
+
+                                if (isParam) {
+                                    const isAlreadyInCatalog = catalog[juuid].params.some(p => p.file === relPath && p.node === nodePath && p.compId === compId && p.className === className && p.property === rootProp);
+                                    if (!isAlreadyInCatalog) {
+                                        catalog[juuid].params.push({
+                                            file: relPath,
+                                            node: nodePath,
+                                            compId,
+                                            className,
+                                            scriptFile,
+                                            bounceScript: bounceScript || undefined,
+                                            bounces: bounces || undefined,
+                                            functionName,
+                                            property: rootProp
+                                        });
+                                    }
+                                    continue;
                                 }
 
                                 if (isEmitter) {
