@@ -17,7 +17,7 @@
     },
     "panels": {
         "default": {
-            "title": "pTS Event Nexus",
+            "title": "Nexus Graph",
             "type": "dockable",
             "main": "dist/panel.js",
             "size": {
@@ -48,7 +48,7 @@
         },
         "menu": [
             {
-                "path": "i18n:menu.extension/pTS Nexus",
+                "path": "i18n:menu.extension/pTS-Nexus",
                 "label": "Open Event Nexus Graph",
                 "message": "open-panel"
             }
