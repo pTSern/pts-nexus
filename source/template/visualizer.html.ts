@@ -21,8 +21,8 @@ export function generateVisualizerHtml(networkData: any): string {
         throw new Error('[pts-nexus] Could not find visualizer.html template');
     }
 
-    // Preserve complete network payload (catalog + workflows)
-    const payload = (networkData && networkData.catalog) ? networkData : { catalog: networkData || {}, workflows: [] };
+    // Preserve complete network payload (catalog + workflows + sceneFlows)
+    const payload = (networkData && networkData.catalog) ? networkData : { catalog: networkData || {}, workflows: [], sceneFlows: {} };
     const dataJson = JSON.stringify(payload);
     return template.replace('__NETWORK_DATA_PLACEHOLDER__', dataJson);
 }

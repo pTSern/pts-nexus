@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { CocosUuidUtils } from './CocosUuidUtils';
 import { TypeRegistry } from './TypeRegistry';
 import { FunctionWorkflowAnalyzer, WorkflowPipeline } from './FunctionWorkflowAnalyzer';
+import { SceneFlowAnalyzer, SceneFlowTree } from './SceneFlowAnalyzer';
 
 export interface GraphEmitter {
     file: string;
@@ -61,6 +62,7 @@ export interface EventNetworkCatalogItem {
 export interface EventNetworkGraph {
     catalog: Record<string, EventNetworkCatalogItem>;
     workflows?: WorkflowPipeline[];
+    sceneFlows?: Record<string, SceneFlowTree>;
 }
 
 export class NexusGraphBuilder {
@@ -551,6 +553,7 @@ export class NexusGraphBuilder {
         }
 
         const workflows = FunctionWorkflowAnalyzer.buildPipelines(catalog);
-        return { catalog, workflows };
+        const sceneFlows = await SceneFlowAnalyzer.buildSceneFlows(projectPath, catalog);
+        return { catalog, workflows, sceneFlows };
     }
 }

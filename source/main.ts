@@ -6,6 +6,7 @@ import { TypeRegistry } from './engine/TypeRegistry';
 import { generateVisualizerHtml } from './template/visualizer.html';
 import { focusTargetInEditor } from './panel';
 import { NexusConfigManager } from './config';
+import { TreeGraphQueryEngine, TreeGraphQueryOptions } from './engine/TreeGraphQueryEngine';
 
 export const methods: { [key: string]: (...args: any[]) => any } = {
     openPanel() {
@@ -43,6 +44,18 @@ export const methods: { [key: string]: (...args: any[]) => any } = {
         await fs.promises.writeFile(outPath, html, 'utf8');
         console.log(`[${pkg.name}] Successfully generated HTML visualizer at: ${outPath}`);
         return { success: true, path: outPath };
+    },
+    async getTreeGraph(options?: TreeGraphQueryOptions) {
+        const projectPath = Editor.Project.path;
+        return await TreeGraphQueryEngine.query(projectPath, options);
+    },
+    async 'get-tree-graph'(options?: TreeGraphQueryOptions) {
+        const projectPath = Editor.Project.path;
+        return await TreeGraphQueryEngine.query(projectPath, options);
+    },
+    async 'query-tree'(options?: TreeGraphQueryOptions) {
+        const projectPath = Editor.Project.path;
+        return await TreeGraphQueryEngine.query(projectPath, options);
     },
     getConfig() {
         return NexusConfigManager.readConfig();

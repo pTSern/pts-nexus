@@ -44,6 +44,16 @@
                 "methods": [
                     "generateHtml"
                 ]
+            },
+            "get-tree-graph": {
+                "methods": [
+                    "getTreeGraph"
+                ]
+            },
+            "query-tree": {
+                "methods": [
+                    "getTreeGraph"
+                ]
             }
         },
         "menu": [

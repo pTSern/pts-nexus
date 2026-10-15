@@ -90,6 +90,9 @@
                 <button id="mode-pts" class="tab-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-1">
                     <i class="ph-bold ph-diamond"></i> <span>pTSAsset</span>
                 </button>
+                <button id="mode-sceneflow" class="tab-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-1">
+                    <i class="ph-bold ph-tree-view"></i> <span>Scene Flow</span>
+                </button>
                 <button id="mode-workflow" class="tab-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-1">
                     <i class="ph-bold ph-git-branch"></i> <span>Workflows</span>
                 </button>
@@ -101,7 +104,7 @@
             <!-- Search Bar -->
             <div class="relative flex-1">
                 <i class="ph ph-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-base"></i>
-                <input id="search-input" type="text" placeholder="Search event, pTSAsset, method, or component..." 
+                <input id="search-input" type="text" placeholder="Search event, pTSAsset, method, or node..." 
                     class="w-full bg-slate-800/80 border border-slate-700 text-xs rounded-lg pl-9 pr-8 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all shadow-inner">
                 <button id="clear-search" class="hidden absolute right-2.5 top-2.5 text-slate-400 hover:text-white">
                     <i class="ph ph-x"></i>
@@ -110,7 +113,7 @@
 
             <!-- Scene / Prefab Scope Dropdown -->
             <div class="relative shrink-0">
-                <select id="scope-select" class="bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-2 focus:outline-none focus:border-sky-500 max-w-[150px] truncate cursor-pointer shadow-inner">
+                <select id="scope-select" class="bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-2 focus:outline-none focus:border-sky-500 max-w-[170px] truncate cursor-pointer shadow-inner">
                     <option value="ALL">📁 All Files</option>
                 </select>
             </div>
@@ -133,7 +136,7 @@
             </button>
 
             <!-- Role Toggles -->
-            <div class="hidden xl:flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/60 gap-0.5">
+            <div id="role-toggles-container" class="hidden xl:flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/60 gap-0.5">
                 <button id="btn-toggle-emitter" class="role-btn active px-2 py-1 rounded text-[11px] text-emerald-300 hover:text-white transition-all" title="Toggle Emitters">⚡ Emitter</button>
                 <button id="btn-toggle-listener" class="role-btn active px-2 py-1 rounded text-[11px] text-fuchsia-300 hover:text-white transition-all" title="Toggle Listeners">🎧 Listener</button>
                 <button id="btn-toggle-param" class="role-btn active px-2 py-1 rounded text-[11px] text-amber-300 hover:text-white transition-all" title="Toggle Params">📦 Param</button>
@@ -174,7 +177,7 @@
     <!-- Main Workspace -->
     <div class="flex-1 flex overflow-hidden relative">
 
-        <!-- Left Sidebar: Catalog Explorer -->
+        <!-- Left Sidebar: Explorer -->
         <aside id="left-sidebar" class="w-80 bg-slate-900/95 border-r border-slate-800 flex flex-col z-10 transition-all duration-300 shrink-0">
             <div class="p-3.5 border-b border-slate-800 flex items-center justify-between">
                 <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -214,7 +217,7 @@
             </div>
 
             <!-- Bottom Floating Domain Filter Bar -->
-            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 w-[92%] pointer-events-none z-10 flex justify-center">
+            <div id="domain-filters-dock" class="absolute bottom-4 left-1/2 -translate-x-1/2 w-[92%] pointer-events-none z-10 flex justify-center">
                 <div id="domain-filters-container" class="filter-container n8n-card p-1.5 rounded-2xl border border-slate-700/60 text-xs overflow-x-auto w-full flex items-center justify-start sm:justify-center gap-1 shadow-2xl pointer-events-auto">
                     <!-- Populated via JS -->
                 </div>
@@ -317,16 +320,18 @@
         const RAW_DATA = __NETWORK_DATA_PLACEHOLDER__;
         const NETWORK_DATA = (RAW_DATA && RAW_DATA.catalog) ? RAW_DATA.catalog : (RAW_DATA || {});
         const WORKFLOWS_DATA = (RAW_DATA && RAW_DATA.workflows) ? RAW_DATA.workflows : [];
+        const SCENE_FLOWS_DATA = (RAW_DATA && RAW_DATA.sceneFlows) ? RAW_DATA.sceneFlows : {};
 
         let visNetwork = null;
         let allNodes = [];
         let allEdges = [];
 
         // Modes and Filters
-        let activeViewMode = "ALL"; // "ALL" | "JSON" | "PTS" | "WORKFLOW"
+        let activeViewMode = "ALL"; // "ALL" | "JSON" | "PTS" | "WORKFLOW" | "SCENEFLOW"
         let activeDomain = "ALL";
         let activeSearch = "";
         let activeScopeFile = "ALL";
+        let activeScenePath = null;
         let isNeighborhoodMode = true; // Default fast 60fps mode
         let isAggregateMode = false;
         let showEmitters = true;
@@ -344,6 +349,7 @@
         // Extract all unique Scene & Prefab files for the Scope Dropdown
         function initScopeFiles() {
             const scopeSelect = document.getElementById('scope-select');
+            scopeSelect.innerHTML = '<option value="ALL">📁 All Files</option>';
             const filesSet = new Set();
 
             Object.values(NETWORK_DATA).forEach(item => {
@@ -351,6 +357,9 @@
                 item.listeners.forEach(l => { if (l.file) filesSet.add(l.file); });
                 item.params.forEach(p => { if (p.file) filesSet.add(p.file); });
             });
+
+            // Also add all sceneFlows files
+            Object.keys(SCENE_FLOWS_DATA).forEach(p => filesSet.add(p));
 
             const sortedFiles = Array.from(filesSet).sort();
             sortedFiles.forEach(file => {
@@ -361,8 +370,16 @@
                 scopeSelect.appendChild(opt);
             });
 
+            // Select default active scene (prefer fast_test.scene)
+            const scenePaths = Object.keys(SCENE_FLOWS_DATA);
+            activeScenePath = scenePaths.find(p => p.includes('fast_test')) || scenePaths.find(p => p.includes('game.scene')) || scenePaths[0] || null;
+
             scopeSelect.addEventListener('change', (e) => {
                 activeScopeFile = e.target.value;
+                if (activeViewMode === "SCENEFLOW" && activeScopeFile !== "ALL") {
+                    activeScenePath = activeScopeFile;
+                }
+                populateSidebarList();
                 initNetwork();
             });
         }
@@ -391,7 +408,7 @@
 
         function focusNodeInGraph(targetNodeId, scale = 1.3) {
             activeFocusNodeId = targetNodeId;
-            if (isNeighborhoodMode) {
+            if (isNeighborhoodMode && activeViewMode !== "WORKFLOW" && activeViewMode !== "SCENEFLOW") {
                 initNetwork();
             }
             if (visNetwork) {
@@ -436,7 +453,7 @@
             }
         }
 
-        // Left Sidebar: Populate Catalog or Workflow list
+        // Left Sidebar: Populate Catalog, Workflow, or Scene Tree
         function populateSidebarList() {
             const listEl = document.getElementById('event-list');
             const countEl = document.getElementById('event-count');
@@ -445,6 +462,66 @@
             if (!listEl) return;
             listEl.innerHTML = "";
 
+            // ============================
+            // MODE: SCENE FLOW
+            // ============================
+            if (activeViewMode === "SCENEFLOW") {
+                const currentTree = SCENE_FLOWS_DATA[activeScenePath] || Object.values(SCENE_FLOWS_DATA)[0];
+                titleEl.textContent = currentTree ? currentTree.sceneName : "Scenes";
+                iconEl.className = "ph-bold ph-tree-view text-emerald-400 text-base";
+
+                // Top scene switcher bar inside sidebar
+                const switcherRow = document.createElement('div');
+                switcherRow.className = 'p-2 bg-slate-800/80 rounded-xl border border-slate-700/60 mb-2 flex items-center justify-between text-xs font-semibold';
+                switcherRow.innerHTML = `
+                    <span class="text-slate-300 truncate">🎬 ${currentTree ? currentTree.sceneName : 'Select Scene'}</span>
+                    <span class="text-[10px] text-emerald-400 font-mono">${currentTree ? Object.keys(currentTree.nodes).length : 0} nodes</span>
+                `;
+                listEl.appendChild(switcherRow);
+
+                if (!currentTree) {
+                    listEl.innerHTML += '<div class="text-xs text-slate-500 italic p-4 text-center">No scene flow data found</div>';
+                    return;
+                }
+
+                const nodesList = Object.values(currentTree.nodes);
+                if (countEl) countEl.textContent = nodesList.length;
+
+                nodesList.forEach(node => {
+                    const row = document.createElement('div');
+                    row.className = 'group p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/50 hover:border-emerald-500/60 cursor-pointer transition-all flex items-center justify-between gap-2 text-xs shadow-sm';
+                    
+                    const nodeIcon = node.name === 'Canvas' ? '🖼️' : (node.name === 'Camera' ? '📷' : (node.name === 'Config' ? '⚙️' : '📦'));
+                    const customCompsCount = node.components.filter(c => c.isCustomScript).length;
+                    const wfCount = node.components.reduce((acc, c) => acc + c.workflows.length, 0);
+
+                    row.innerHTML = `
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            <span class="text-sm shrink-0">${nodeIcon}</span>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-medium text-slate-200 group-hover:text-white truncate text-[11px] font-mono">${node.name}</div>
+                                <div class="text-[10px] text-slate-400 truncate">${node.path}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0 text-[10px] font-mono">
+                            <span class="px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-semibold">${node.components.length}c</span>
+                            ${customCompsCount > 0 ? `<span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-semibold">${customCompsCount}s</span>` : ''}
+                            ${wfCount > 0 ? `<span class="px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 font-semibold">${wfCount}wf</span>` : ''}
+                        </div>
+                    `;
+
+                    row.addEventListener('click', () => {
+                        focusNodeInGraph(node.id, 1.4);
+                    });
+
+                    listEl.appendChild(row);
+                });
+                return;
+            }
+
+            // ============================
+            // MODE: WORKFLOWS
+            // ============================
             if (activeViewMode === "WORKFLOW") {
                 titleEl.textContent = "Workflows";
                 iconEl.className = "ph-bold ph-git-branch text-indigo-400 text-base";
@@ -488,7 +565,9 @@
                 return;
             }
 
-            // Normal Catalog View (JsonAsset / pTSAsset / All)
+            // ============================
+            // MODE: EVENTS / PTSASSET / ALL
+            // ============================
             titleEl.textContent = activeViewMode === "PTS" ? "pTSAsset" : (activeViewMode === "JSON" ? "Events" : "Catalog");
             iconEl.className = activeViewMode === "PTS" ? "ph-bold ph-diamond text-purple-400 text-base" : "ph ph-tree-structure text-sky-400 text-base";
 
@@ -524,7 +603,6 @@
                 row.className = 'group p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/50 hover:border-sky-500/60 cursor-pointer transition-all flex items-center justify-between gap-2 text-xs shadow-sm';
                 
                 let icon = isPts ? (item.domainIcon || '💎') : (isParam ? '📦' : (item.domainIcon || '⚡'));
-                let badgeClass = isPts ? 'bg-purple-950/80 text-purple-300 border-purple-800/60' : 'bg-sky-950/80 text-sky-300 border-sky-800/60';
 
                 row.innerHTML = `
                     <div class="flex items-center gap-2 min-w-0 flex-1">
@@ -549,10 +627,33 @@
             });
         }
 
-        // Render Bottom Dock Domain Filters
+        // Render Dynamic Domain Filters
         function renderDynamicDomainFilters() {
+            const filterDock = document.getElementById('domain-filters-dock');
             const filterContainer = document.getElementById('domain-filters-container');
             filterContainer.innerHTML = "";
+
+            if (activeViewMode === "SCENEFLOW") {
+                // In Scene Flow mode, render scene selection pills in bottom dock!
+                const scenePaths = Object.keys(SCENE_FLOWS_DATA);
+                filterDock.classList.remove('hidden');
+
+                scenePaths.slice(0, 15).forEach(p => {
+                    const base = p.split('/').pop();
+                    const isAct = activeScenePath === p;
+                    const btn = document.createElement('button');
+                    btn.className = `filter-btn px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${isAct ? 'text-emerald-300 bg-emerald-950 font-bold border border-emerald-700/60 shadow-md' : 'text-slate-400 hover:text-white'}`;
+                    btn.innerHTML = `🎬 ${base}`;
+                    btn.addEventListener('click', () => {
+                        activeScenePath = p;
+                        renderDynamicDomainFilters();
+                        populateSidebarList();
+                        renderSceneFlowGraph(SCENE_FLOWS_DATA[p]);
+                    });
+                    filterContainer.appendChild(btn);
+                });
+                return;
+            }
 
             const domainCounts = {};
             const domainIcons = {};
@@ -589,7 +690,7 @@
                 activeDomain = 'ALL';
                 renderDynamicDomainFilters();
                 populateSidebarList();
-                if (activeViewMode !== "WORKFLOW") initNetwork();
+                if (activeViewMode !== "WORKFLOW" && activeViewMode !== "SCENEFLOW") initNetwork();
             });
             filterContainer.appendChild(allBtn);
 
@@ -605,289 +706,232 @@
                     activeDomain = domain;
                     renderDynamicDomainFilters();
                     populateSidebarList();
-                    if (activeViewMode !== "WORKFLOW") initNetwork();
+                    if (activeViewMode !== "WORKFLOW" && activeViewMode !== "SCENEFLOW") initNetwork();
                 });
                 filterContainer.appendChild(btn);
             });
         }
 
-        // Build Graph Data (JsonAsset & pTSAsset with Performance Optimizations)
-        function buildGraphData() {
+        // ==========================================
+        // RENDER SCENE FLOW GRAPH (Exact User Diagram)
+        // ==========================================
+        function renderSceneFlowGraph(sceneFlow) {
+            if (!sceneFlow) {
+                const scenePaths = Object.keys(SCENE_FLOWS_DATA);
+                if (scenePaths.length > 0) {
+                    sceneFlow = SCENE_FLOWS_DATA[scenePaths[0]];
+                }
+            }
+            if (!sceneFlow) return;
+
             const nodes = [];
             const edges = [];
-            const edgeSet = new Set();
             const nodeMap = new Map();
 
-            const getShortNode = (nodePath) => {
-                if (!nodePath) return 'Node';
-                const parts = nodePath.split('/');
-                return parts.length > 2 ? parts.slice(-2).join('/') : nodePath;
-            };
+            // 1. Scene Root Node (Clean name, details moved to Detail Panel)
+            const sceneRootId = `sc_root_${sceneFlow.sceneName}`;
+            nodes.push({
+                id: sceneRootId,
+                label: `🎬 ${sceneFlow.sceneName}`,
+                shape: 'box',
+                margin: 10,
+                font: { color: '#ffffff', size: 12.5, face: 'monospace', bold: true },
+                color: {
+                    background: '#0f172a',
+                    border: '#38bdf8',
+                    highlight: { background: '#1e293b', border: '#e0f2fe' }
+                },
+                borderWidth: 2.5,
+                shadow: { enabled: true, color: 'rgba(56, 189, 248, 0.6)', size: 14, x: 0, y: 0 },
+                data: {
+                    type: 'SCENE_ROOT',
+                    sceneFlow: sceneFlow
+                }
+            });
+            nodeMap.set(sceneRootId, true);
 
-            // Collect candidate catalog items matching filters
-            const candidateItems = Object.entries(NETWORK_DATA).filter(([uuid, item]) => {
-                if (activeViewMode === "JSON" && item.assetType === "pts") return false;
-                if (activeViewMode === "PTS" && item.assetType !== "pts") return false;
-                if (activeDomain !== "ALL" && item.domain !== activeDomain) return false;
-                if (hideUnconnected) {
-                    const totalConnections = item.emitters.length + item.listeners.length + item.params.length;
-                    if (totalConnections === 0) return false;
-                }
-                if (activeScopeFile !== "ALL") {
-                    const hasFile = item.emitters.some(e => e.file === activeScopeFile) ||
-                                    item.listeners.some(l => l.file === activeScopeFile) ||
-                                    item.params.some(p => p.file === activeScopeFile);
-                    if (!hasFile) return false;
-                }
-                if (activeSearch) {
-                    const searchTarget = (item.name + " " + item.path + " " + (item.ptsType || '') + " " + JSON.stringify(item.emitters) + " " + JSON.stringify(item.listeners)).toLowerCase();
-                    if (!searchTarget.includes(activeSearch)) return false;
-                }
-                return true;
+            // Connect Scene Root to Top-level Scene Nodes (Canvas, Config, etc.)
+            sceneFlow.rootNodeIds.forEach(rootNodeId => {
+                edges.push({
+                    from: sceneRootId,
+                    to: rootNodeId,
+                    color: { color: '#38bdf8', highlight: '#7dd3fc' },
+                    width: 2,
+                    arrows: { to: { enabled: true, scaleFactor: 0.8 } }
+                });
             });
 
-            // If Neighborhood mode is active, scope to activeFocusNodeId or the top candidates
-            let targetHubUuids = new Set();
-            if (isNeighborhoodMode && candidateItems.length > 0) {
-                if (activeFocusNodeId && activeFocusNodeId.startsWith('evt_')) {
-                    const focalUuid = activeFocusNodeId.replace('evt_', '');
-                    targetHubUuids.add(focalUuid);
-                } else if (activeFocusNodeId && (activeFocusNodeId.startsWith('emit_') || activeFocusNodeId.startsWith('list_') || activeFocusNodeId.startsWith('param_'))) {
-                    // Focal node is a component, find connected hubs
-                    Object.entries(NETWORK_DATA).forEach(([uuid, item]) => {
-                        const inEmitters = item.emitters.some(e => activeFocusNodeId.includes(e.className));
-                        const inListeners = item.listeners.some(l => activeFocusNodeId.includes(l.className));
-                        if (inEmitters || inListeners) targetHubUuids.add(uuid);
+            // 2. Render Nodes, Children Links, Components, and Workflows
+            Object.values(sceneFlow.nodes).forEach(sNode => {
+                const isCanvas = sNode.name === 'Canvas';
+                const isCamera = sNode.name === 'Camera';
+                const isConfig = sNode.name === 'Config';
+                const icon = isCanvas ? '🖼️' : (isCamera ? '📷' : (isConfig ? '⚙️' : '📦'));
+
+                // Scene Node Box (Clean name, details moved to Detail Panel)
+                nodes.push({
+                    id: sNode.id,
+                    label: `${icon} ${sNode.name}`,
+                    shape: 'box',
+                    margin: 8,
+                    font: { color: '#f8fafc', size: 11, face: 'monospace', bold: true },
+                    color: {
+                        background: '#1e293b',
+                        border: isCanvas ? '#38bdf8' : (isCamera ? '#c084fc' : '#64748b'),
+                        highlight: { background: '#334155', border: '#ffffff' }
+                    },
+                    borderWidth: 2,
+                    shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 6, x: 0, y: 2 },
+                    data: {
+                        type: 'SCENE_NODE',
+                        sNode: sNode,
+                        sceneFlow: sceneFlow
+                    }
+                });
+
+                // Connect to Child Nodes -(Children)->
+                sNode.childrenIds.forEach(childId => {
+                    edges.push({
+                        from: sNode.id,
+                        to: childId,
+                        label: 'Children',
+                        font: { color: '#94a3b8', size: 9, align: 'middle' },
+                        color: { color: '#0ea5e9', highlight: '#38bdf8' },
+                        width: 1.8,
+                        arrows: { to: { enabled: true, scaleFactor: 0.8 } },
+                        smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.3 }
                     });
-                } else {
-                    // Pick first 8 hubs for quick, instant render
-                    candidateItems.slice(0, 8).forEach(([uuid]) => targetHubUuids.add(uuid));
-                }
-            } else {
-                candidateItems.forEach(([uuid]) => targetHubUuids.add(uuid));
-            }
+                });
 
-            candidateItems.forEach(([uuid, item]) => {
-                if (!targetHubUuids.has(uuid)) return;
+                // 3. Components attached to this Node: Clean name
+                sNode.components.forEach((comp, compIdx) => {
+                    const compNodeId = `comp_${sNode.id}_${comp.compId}`;
+                    const isCustom = comp.isCustomScript;
 
-                const isPts = item.assetType === 'pts';
-                const isParam = item.path.includes("params") || item.path.includes("id");
-
-                // 1. Hub Node (JsonAsset or pTSAsset)
-                const eventNodeId = "evt_" + uuid;
-                if (!nodeMap.has(eventNodeId)) {
-                    const labelPrefix = isPts ? (item.domainIcon || '💎') : (isParam ? '📦' : '⚡');
-                    const hubNode = {
-                        id: eventNodeId,
-                        label: `${labelPrefix}  ${item.name}`,
-                        shape: isPts ? 'diamond' : 'box',
-                        margin: { top: 10, bottom: 10, left: 14, right: 14 },
-                        font: { color: '#ffffff', size: 12.5, face: 'monospace', bold: true },
-                        color: isPts ? {
-                            background: '#4c1d95',
-                            border: '#c084fc',
-                            highlight: { background: '#6b21a8', border: '#f3e8ff' },
-                            hover: { background: '#6b21a8', border: '#f3e8ff' }
-                        } : (isParam ? {
-                            background: '#451a03',
-                            border: '#fbbf24',
-                            highlight: { background: '#78350f', border: '#fef08a' },
-                            hover: { background: '#78350f', border: '#fef08a' }
+                    nodes.push({
+                        id: compNodeId,
+                        label: isCustom ? `⚡ ${comp.className}` : comp.className,
+                        shape: 'box',
+                        margin: 6,
+                        font: { color: isCustom ? '#ecfdf5' : '#cbd5e1', size: 9.5, face: 'monospace', bold: isCustom },
+                        color: isCustom ? {
+                            background: '#064e3b',
+                            border: '#10b981',
+                            highlight: { background: '#047857', border: '#34d399' }
                         } : {
-                            background: '#082f49',
-                            border: '#38bdf8',
-                            highlight: { background: '#0369a1', border: '#e0f2fe' },
-                            hover: { background: '#0369a1', border: '#e0f2fe' }
-                        }),
-                        borderWidth: 2.5,
-                        shadow: { 
-                            enabled: true, 
-                            color: isPts ? 'rgba(192, 132, 252, 0.65)' : (isParam ? 'rgba(245, 158, 11, 0.65)' : 'rgba(56, 189, 248, 0.65)'), 
-                            size: 14, 
-                            x: 0, 
-                            y: 0 
+                            background: '#0f172a',
+                            border: '#475569',
+                            highlight: { background: '#1e293b', border: '#94a3b8' }
                         },
+                        borderWidth: isCustom ? 1.8 : 1.2,
                         data: {
-                            type: isPts ? 'PTS_ASSET' : (isParam ? 'PARAM' : 'EVENT'),
-                            uuid: uuid,
-                            raw: item
-                        }
-                    };
-                    nodeMap.set(eventNodeId, hubNode);
-                    nodes.push(hubNode);
-                }
-
-                // 2. Emitters
-                if (showEmitters) {
-                    item.emitters.forEach((emit, idx) => {
-                        if (activeScopeFile !== "ALL" && emit.file !== activeScopeFile) return;
-
-                        const shortNode = getShortNode(emit.node);
-                        const emitNodeId = isAggregateMode 
-                            ? `comp_${emit.file}_${emit.node}_${emit.className}`
-                            : `emit_${emit.file}_${emit.node}_${emit.className}_${emit.functionName || idx}`;
-
-                        if (!nodeMap.has(emitNodeId)) {
-                            const emitNode = {
-                                id: emitNodeId,
-                                label: isAggregateMode 
-                                    ? `🏢 ${shortNode}\n${emit.className}`
-                                    : `${shortNode} · ${emit.className}\n⚡ ${emit.functionName || 'emit()'}`,
-                                shape: 'box',
-                                margin: 7,
-                                font: { color: '#f0fdf4', size: 10, face: 'sans-serif', align: 'center' },
-                                color: {
-                                    background: '#14532d',
-                                    border: '#22c55e',
-                                    highlight: { background: '#15803d', border: '#4ade80' },
-                                    hover: { background: '#15803d', border: '#4ade80' }
-                                },
-                                borderWidth: 1.5,
-                                data: {
-                                    type: 'EMITTER',
-                                    emit: emit,
-                                    targetEventUuids: [uuid]
-                                }
-                            };
-                            nodeMap.set(emitNodeId, emitNode);
-                            nodes.push(emitNode);
-                        }
-
-                        const edgeId = `${emitNodeId}->${eventNodeId}`;
-                        if (!edgeSet.has(edgeId)) {
-                            edgeSet.add(edgeId);
-                            edges.push({
-                                id: edgeId,
-                                from: emitNodeId,
-                                to: eventNodeId,
-                                arrows: { to: { enabled: true, scaleFactor: 0.75 } },
-                                color: { color: '#22c55e', highlight: '#4ade80' },
-                                width: 1.5,
-                                smooth: { type: 'continuous', roundness: 0.2 }
-                            });
+                            type: 'SCENE_COMPONENT',
+                            comp: comp,
+                            sNode: sNode,
+                            sceneFlow: sceneFlow
                         }
                     });
-                }
 
-                // 3. Listeners
-                if (showListeners) {
-                    item.listeners.forEach((list, idx) => {
-                        if (activeScopeFile !== "ALL" && list.file !== activeScopeFile) return;
-
-                        const shortNode = getShortNode(list.node);
-                        const listNodeId = isAggregateMode
-                            ? `comp_${list.file}_${list.node}_${list.className}`
-                            : `list_${list.file}_${list.node}_${list.className}_${list.boundMethod || idx}`;
-
-                        if (!nodeMap.has(listNodeId)) {
-                            const listNode = {
-                                id: listNodeId,
-                                label: isAggregateMode 
-                                    ? `🏢 ${shortNode}\n${list.className}`
-                                    : `${shortNode} · ${list.className}\n🎧 ${list.boundMethod || 'handle'}()`,
-                                shape: 'box',
-                                margin: 7,
-                                font: { color: '#fdf4ff', size: 10, face: 'sans-serif', align: 'center' },
-                                color: {
-                                    background: '#581c87',
-                                    border: '#c084fc',
-                                    highlight: { background: '#6b21a8', border: '#e879f9' },
-                                    hover: { background: '#6b21a8', border: '#e879f9' }
-                                },
-                                borderWidth: 1.5,
-                                data: {
-                                    type: 'LISTENER',
-                                    list: list,
-                                    targetEventUuids: [uuid]
-                                }
-                            };
-                            nodeMap.set(listNodeId, listNode);
-                            nodes.push(listNode);
-                        }
-
-                        const edgeId = `${eventNodeId}->${listNodeId}`;
-                        if (!edgeSet.has(edgeId)) {
-                            edgeSet.add(edgeId);
-                            edges.push({
-                                id: edgeId,
-                                from: eventNodeId,
-                                to: listNodeId,
-                                arrows: { to: { enabled: true, scaleFactor: 0.75 } },
-                                color: { color: '#c084fc', highlight: '#e879f9' },
-                                width: 1.5,
-                                smooth: { type: 'continuous', roundness: 0.2 }
-                            });
-                        }
+                    // Link Node -- Component
+                    edges.push({
+                        from: sNode.id,
+                        to: compNodeId,
+                        color: { color: isCustom ? '#10b981' : '#64748b', highlight: '#34d399' },
+                        width: 1.2,
+                        dashes: !isCustom,
+                        arrows: { to: { enabled: false } }
                     });
-                }
 
-                // 4. Params
-                if (showParams) {
-                    item.params.forEach((param, idx) => {
-                        if (activeScopeFile !== "ALL" && param.file !== activeScopeFile) return;
+                    // 4. Workflows attached under Component: Clean title
+                    comp.workflows.forEach((wf, wfIdx) => {
+                        const wfNodeId = `wf_${compNodeId}_${wfIdx}`;
+                        const cleanTitle = (wf.title || 'Workflow').replace(/^\(\s*/, '').replace(/\s*\)$/, '');
+                        nodes.push({
+                            id: wfNodeId,
+                            label: cleanTitle,
+                            shape: 'box',
+                            margin: 5,
+                            font: { color: '#f3e8ff', size: 9, face: 'monospace' },
+                            color: {
+                                background: '#4c1d95',
+                                border: '#c084fc',
+                                highlight: { background: '#581c87', border: '#e879f9' }
+                            },
+                            borderWidth: 1.5,
+                            data: {
+                                type: 'SCENE_WORKFLOW',
+                                workflow: wf,
+                                comp: comp,
+                                sNode: sNode,
+                                sceneFlow: sceneFlow
+                            }
+                        });
 
-                        const shortNode = getShortNode(param.node);
-                        const paramNodeId = isAggregateMode
-                            ? `comp_${param.file}_${param.node}_${param.className}`
-                            : `param_${param.file}_${param.node}_${param.className}_${param.property}`;
-
-                        if (!nodeMap.has(paramNodeId)) {
-                            const paramNode = {
-                                id: paramNodeId,
-                                label: isAggregateMode 
-                                    ? `🏢 ${shortNode}\n${param.className}`
-                                    : `${shortNode} · ${param.className}\n📦 ${param.property}`,
-                                shape: 'box',
-                                margin: 7,
-                                font: { color: '#fffbeb', size: 10, face: 'sans-serif', align: 'center' },
-                                color: {
-                                    background: '#78350f',
-                                    border: '#f59e0b',
-                                    highlight: { background: '#92400e', border: '#fbbf24' },
-                                    hover: { background: '#92400e', border: '#fbbf24' }
-                                },
-                                borderWidth: 1.5,
-                                data: {
-                                    type: 'PARAM_HOLDER',
-                                    param: param,
-                                    targetEventUuids: [uuid]
-                                }
-                            };
-                            nodeMap.set(paramNodeId, paramNode);
-                            nodes.push(paramNode);
-                        }
-
-                        const edgeId = `${eventNodeId}-.-${paramNodeId}`;
-                        if (!edgeSet.has(edgeId)) {
-                            edgeSet.add(edgeId);
-                            edges.push({
-                                id: edgeId,
-                                from: eventNodeId,
-                                to: paramNodeId,
-                                dashes: true,
-                                color: { color: '#f59e0b', highlight: '#fbbf24' },
-                                width: 1.5,
-                                smooth: { type: 'continuous', roundness: 0.2 }
-                            });
-                        }
+                        // Link Component |- ( Workflow )
+                        edges.push({
+                            from: compNodeId,
+                            to: wfNodeId,
+                            color: { color: '#c084fc', highlight: '#e879f9' },
+                            width: 1.5,
+                            arrows: { to: { enabled: true, scaleFactor: 0.6 } }
+                        });
                     });
-                }
+                });
             });
 
             allNodes = nodes;
             allEdges = edges;
 
-            // Update stats badge
-            document.getElementById('stats-rendered-nodes').textContent = nodes.length;
-            document.getElementById('stats-total-catalog').textContent = Object.keys(NETWORK_DATA).length;
-
-            return {
+            const data = {
                 nodes: new vis.DataSet(nodes),
                 edges: new vis.DataSet(edges)
             };
+
+            const options = {
+                layout: {
+                    hierarchical: {
+                        direction: 'LR',
+                        sortMethod: 'directed',
+                        levelSeparation: 220,
+                        nodeSpacing: 60,
+                        treeSpacing: 100
+                    }
+                },
+                physics: { enabled: false },
+                interaction: {
+                    hover: true,
+                    zoomView: true,
+                    dragView: true
+                }
+            };
+
+            if (visNetwork) {
+                visNetwork.destroy();
+            }
+
+            visNetwork = new vis.Network(container, data, options);
+
+            visNetwork.on("click", function(params) {
+                if (params.nodes.length > 0) {
+                    inspectNode(params.nodes[0]);
+                } else {
+                    clearInspector();
+                }
+            });
+
+            visNetwork.on("doubleClick", function(params) {
+                if (params.nodes.length > 0) {
+                    focusNodeInGraph(params.nodes[0], 1.6);
+                }
+            });
+
+            document.getElementById('stats-rendered-nodes').textContent = nodes.length;
+            document.getElementById('stats-total-catalog').textContent = Object.keys(NETWORK_DATA).length;
         }
 
-        // Render Workflow Execution Pipeline Graph (GitNexus DAG)
+        // ==========================================
+        // RENDER WORKFLOW DAG GRAPH
+        // ==========================================
         function renderWorkflowGraph(workflow) {
             if (!workflow || !workflow.steps) return;
 
@@ -946,6 +990,9 @@
                 }
             });
 
+            allNodes = nodes;
+            allEdges = edges;
+
             const data = {
                 nodes: new vis.DataSet(nodes),
                 edges: new vis.DataSet(edges)
@@ -983,7 +1030,256 @@
             document.getElementById('stats-rendered-nodes').textContent = nodes.length;
         }
 
-        // Initialize Vis.js Network with Optimized Barnes-Hut & Auto-Freeze
+        // ==========================================
+        // BUILD EVENT & PTSASSET GRAPH DATA
+        // ==========================================
+        function buildGraphData() {
+            const nodes = [];
+            const edges = [];
+            const edgeSet = new Set();
+            const nodeMap = new Map();
+
+            const getShortNode = (nodePath) => {
+                if (!nodePath) return 'Node';
+                const parts = nodePath.split('/');
+                return parts.length > 2 ? parts.slice(-2).join('/') : nodePath;
+            };
+
+            const candidateItems = Object.entries(NETWORK_DATA).filter(([uuid, item]) => {
+                if (activeViewMode === "JSON" && item.assetType === "pts") return false;
+                if (activeViewMode === "PTS" && item.assetType !== "pts") return false;
+                if (activeDomain !== "ALL" && item.domain !== activeDomain) return false;
+                if (hideUnconnected) {
+                    const totalConnections = item.emitters.length + item.listeners.length + item.params.length;
+                    if (totalConnections === 0) return false;
+                }
+                if (activeScopeFile !== "ALL") {
+                    const hasFile = item.emitters.some(e => e.file === activeScopeFile) ||
+                                    item.listeners.some(l => l.file === activeScopeFile) ||
+                                    item.params.some(p => p.file === activeScopeFile);
+                    if (!hasFile) return false;
+                }
+                if (activeSearch) {
+                    const searchTarget = (item.name + " " + item.path + " " + (item.ptsType || '') + " " + JSON.stringify(item.emitters) + " " + JSON.stringify(item.listeners)).toLowerCase();
+                    if (!searchTarget.includes(activeSearch)) return false;
+                }
+                return true;
+            });
+
+            let targetHubUuids = new Set();
+            if (isNeighborhoodMode && candidateItems.length > 0) {
+                if (activeFocusNodeId && activeFocusNodeId.startsWith('evt_')) {
+                    targetHubUuids.add(activeFocusNodeId.replace('evt_', ''));
+                } else {
+                    candidateItems.slice(0, 8).forEach(([uuid]) => targetHubUuids.add(uuid));
+                }
+            } else {
+                candidateItems.forEach(([uuid]) => targetHubUuids.add(uuid));
+            }
+
+            candidateItems.forEach(([uuid, item]) => {
+                if (!targetHubUuids.has(uuid)) return;
+
+                const isPts = item.assetType === 'pts';
+                const isParam = item.path.includes("params") || item.path.includes("id");
+
+                const eventNodeId = "evt_" + uuid;
+                if (!nodeMap.has(eventNodeId)) {
+                    const labelPrefix = isPts ? (item.domainIcon || '💎') : (isParam ? '📦' : '⚡');
+                    const hubNode = {
+                        id: eventNodeId,
+                        label: `${labelPrefix}  ${item.name}`,
+                        shape: isPts ? 'diamond' : 'box',
+                        margin: { top: 10, bottom: 10, left: 14, right: 14 },
+                        font: { color: '#ffffff', size: 12.5, face: 'monospace', bold: true },
+                        color: isPts ? {
+                            background: '#4c1d95',
+                            border: '#c084fc',
+                            highlight: { background: '#6b21a8', border: '#f3e8ff' }
+                        } : (isParam ? {
+                            background: '#451a03',
+                            border: '#fbbf24',
+                            highlight: { background: '#78350f', border: '#fef08a' }
+                        } : {
+                            background: '#082f49',
+                            border: '#38bdf8',
+                            highlight: { background: '#0369a1', border: '#e0f2fe' }
+                        }),
+                        borderWidth: 2.5,
+                        data: {
+                            type: isPts ? 'PTS_ASSET' : (isParam ? 'PARAM' : 'EVENT'),
+                            uuid: uuid,
+                            raw: item
+                        }
+                    };
+                    nodeMap.set(eventNodeId, hubNode);
+                    nodes.push(hubNode);
+                }
+
+                // Emitters
+                if (showEmitters) {
+                    item.emitters.forEach((emit, idx) => {
+                        if (activeScopeFile !== "ALL" && emit.file !== activeScopeFile) return;
+
+                        const shortNode = getShortNode(emit.node);
+                        const emitNodeId = isAggregateMode 
+                            ? `comp_${emit.file}_${emit.node}_${emit.className}`
+                            : `emit_${emit.file}_${emit.node}_${emit.className}_${emit.functionName || idx}`;
+
+                        if (!nodeMap.has(emitNodeId)) {
+                            const emitNode = {
+                                id: emitNodeId,
+                                label: isAggregateMode 
+                                    ? `🏢 ${shortNode}\n${emit.className}`
+                                    : `${shortNode} · ${emit.className}\n⚡ ${emit.functionName || 'emit()'}`,
+                                shape: 'box',
+                                margin: 7,
+                                font: { color: '#f0fdf4', size: 10, face: 'sans-serif', align: 'center' },
+                                color: {
+                                    background: '#14532d',
+                                    border: '#22c55e',
+                                    highlight: { background: '#15803d', border: '#4ade80' }
+                                },
+                                borderWidth: 1.5,
+                                data: {
+                                    type: 'EMITTER',
+                                    emit: emit,
+                                    targetEventUuids: [uuid]
+                                }
+                            };
+                            nodeMap.set(emitNodeId, emitNode);
+                            nodes.push(emitNode);
+                        }
+
+                        const edgeId = `${emitNodeId}->${eventNodeId}`;
+                        if (!edgeSet.has(edgeId)) {
+                            edgeSet.add(edgeId);
+                            edges.push({
+                                id: edgeId,
+                                from: emitNodeId,
+                                to: eventNodeId,
+                                arrows: { to: { enabled: true, scaleFactor: 0.75 } },
+                                color: { color: '#22c55e', highlight: '#4ade80' },
+                                width: 1.5
+                            });
+                        }
+                    });
+                }
+
+                // Listeners
+                if (showListeners) {
+                    item.listeners.forEach((list, idx) => {
+                        if (activeScopeFile !== "ALL" && list.file !== activeScopeFile) return;
+
+                        const shortNode = getShortNode(list.node);
+                        const listNodeId = isAggregateMode
+                            ? `comp_${list.file}_${list.node}_${list.className}`
+                            : `list_${list.file}_${list.node}_${list.className}_${list.boundMethod || idx}`;
+
+                        if (!nodeMap.has(listNodeId)) {
+                            const listNode = {
+                                id: listNodeId,
+                                label: isAggregateMode 
+                                    ? `🏢 ${shortNode}\n${list.className}`
+                                    : `${shortNode} · ${list.className}\n🎧 ${list.boundMethod || 'handle'}()`,
+                                shape: 'box',
+                                margin: 7,
+                                font: { color: '#fdf4ff', size: 10, face: 'sans-serif', align: 'center' },
+                                color: {
+                                    background: '#581c87',
+                                    border: '#c084fc',
+                                    highlight: { background: '#6b21a8', border: '#e879f9' }
+                                },
+                                borderWidth: 1.5,
+                                data: {
+                                    type: 'LISTENER',
+                                    list: list,
+                                    targetEventUuids: [uuid]
+                                }
+                            };
+                            nodeMap.set(listNodeId, listNode);
+                            nodes.push(listNode);
+                        }
+
+                        const edgeId = `${eventNodeId}->${listNodeId}`;
+                        if (!edgeSet.has(edgeId)) {
+                            edgeSet.add(edgeId);
+                            edges.push({
+                                id: edgeId,
+                                from: eventNodeId,
+                                to: listNodeId,
+                                arrows: { to: { enabled: true, scaleFactor: 0.75 } },
+                                color: { color: '#c084fc', highlight: '#e879f9' },
+                                width: 1.5
+                            });
+                        }
+                    });
+                }
+
+                // Params
+                if (showParams) {
+                    item.params.forEach((param, idx) => {
+                        if (activeScopeFile !== "ALL" && param.file !== activeScopeFile) return;
+
+                        const shortNode = getShortNode(param.node);
+                        const paramNodeId = isAggregateMode
+                            ? `comp_${param.file}_${param.node}_${param.className}`
+                            : `param_${param.file}_${param.node}_${param.className}_${param.property}`;
+
+                        if (!nodeMap.has(paramNodeId)) {
+                            const paramNode = {
+                                id: paramNodeId,
+                                label: isAggregateMode 
+                                    ? `🏢 ${shortNode}\n${param.className}`
+                                    : `${shortNode} · ${param.className}\n📦 ${param.property}`,
+                                shape: 'box',
+                                margin: 7,
+                                font: { color: '#fffbeb', size: 10, face: 'sans-serif', align: 'center' },
+                                color: {
+                                    background: '#78350f',
+                                    border: '#f59e0b',
+                                    highlight: { background: '#92400e', border: '#fbbf24' }
+                                },
+                                borderWidth: 1.5,
+                                data: {
+                                    type: 'PARAM_HOLDER',
+                                    param: param,
+                                    targetEventUuids: [uuid]
+                                }
+                            };
+                            nodeMap.set(paramNodeId, paramNode);
+                            nodes.push(paramNode);
+                        }
+
+                        const edgeId = `${eventNodeId}-.-${paramNodeId}`;
+                        if (!edgeSet.has(edgeId)) {
+                            edgeSet.add(edgeId);
+                            edges.push({
+                                id: edgeId,
+                                from: eventNodeId,
+                                to: paramNodeId,
+                                dashes: true,
+                                color: { color: '#f59e0b', highlight: '#fbbf24' },
+                                width: 1.5
+                            });
+                        }
+                    });
+                }
+            });
+
+            allNodes = nodes;
+            allEdges = edges;
+
+            document.getElementById('stats-rendered-nodes').textContent = nodes.length;
+            document.getElementById('stats-total-catalog').textContent = Object.keys(NETWORK_DATA).length;
+
+            return {
+                nodes: new vis.DataSet(nodes),
+                edges: new vis.DataSet(edges)
+            };
+        }
+
+        // Initialize Vis.js Network
         function initNetwork() {
             if (activeViewMode === "WORKFLOW") {
                 const wf = WORKFLOWS_DATA.find(w => w.id === activeWorkflowId) || WORKFLOWS_DATA[0];
@@ -991,12 +1287,16 @@
                 return;
             }
 
+            if (activeViewMode === "SCENEFLOW") {
+                const tree = SCENE_FLOWS_DATA[activeScenePath] || Object.values(SCENE_FLOWS_DATA)[0];
+                if (tree) renderSceneFlowGraph(tree);
+                return;
+            }
+
             const graphData = buildGraphData();
 
             const options = {
-                nodes: {
-                    borderWidthSelected: 2.5
-                },
+                nodes: { borderWidthSelected: 2.5 },
                 physics: {
                     enabled: isPhysicsRunning,
                     solver: 'barnesHut',
@@ -1008,17 +1308,12 @@
                         damping: 0.85,
                         avoidOverlap: 0.6
                     },
-                    stabilization: {
-                        enabled: true,
-                        iterations: 60,
-                        updateInterval: 10,
-                        fit: true
-                    }
+                    stabilization: { enabled: true, iterations: 60, updateInterval: 10, fit: true }
                 },
                 interaction: {
                     hover: true,
                     tooltipDelay: 100,
-                    hideEdgesOnDrag: true, // Improves drag FPS
+                    hideEdgesOnDrag: true,
                     zoomView: true,
                     dragView: true
                 }
@@ -1030,9 +1325,8 @@
 
             visNetwork = new vis.Network(container, graphData, options);
 
-            // Auto-freeze simulation once stabilized to guarantee 60 FPS
             visNetwork.once('stabilizationIterationsDone', function() {
-                if (visNetwork) {
+                if (visNetwork && activeViewMode !== "WORKFLOW" && activeViewMode !== "SCENEFLOW") {
                     visNetwork.setOptions({ physics: { enabled: false } });
                     isPhysicsRunning = false;
                     const pIcon = document.getElementById('physics-icon');
@@ -1094,6 +1388,274 @@
             btnTraceWf.classList.add('hidden');
 
             const nodeType = node.data.type;
+
+            // ==========================================
+            // CASE: SCENE ROOT / SCENE NODE / COMPONENT
+            // ==========================================
+            if (nodeType === 'SCENE_ROOT') {
+                const sf = node.data.sceneFlow;
+                currentInspectTarget = { file: sf.scenePath, type: 'scene' };
+                inspBadge.textContent = sf.isPrefab ? 'Prefab Asset' : 'Scene Asset';
+                inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-sky-950 text-sky-300 border border-sky-800';
+                inspDomain.textContent = sf.isPrefab ? 'Prefab' : 'Scene';
+                inspTitle.textContent = sf.sceneName;
+                btnFocusLabel.textContent = `Open '${sf.sceneName}' in Cocos`;
+
+                inspPathRow.innerHTML = `
+                    <div><span class="text-slate-500 font-semibold">Path:</span> <span class="text-slate-200">${sf.scenePath}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Type:</span> <span class="text-sky-300 font-bold">${sf.isPrefab ? 'Prefab Asset' : 'Scene Asset'}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Total Nodes:</span> <span class="text-emerald-400 font-bold">${sf.summary.totalNodes}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Total Comps:</span> <span class="text-sky-300 font-bold">${sf.summary.totalComponents}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Custom Scripts:</span> <span class="text-emerald-300 font-bold">${sf.summary.totalCustomScripts}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Workflows:</span> <span class="text-purple-300 font-bold">${sf.summary.totalWorkflows}</span></div>
+                `;
+
+                emittersSection.classList.remove('hidden');
+                document.getElementById('insp-emitters-title-text').textContent = "Root Hierarchy Nodes";
+                document.getElementById('insp-emitters-count').textContent = sf.rootNodeIds.length;
+
+                sf.rootNodeIds.forEach(rId => {
+                    const rNode = sf.nodes[rId];
+                    if (!rNode) return;
+                    const el = document.createElement('div');
+                    el.className = 'p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 hover:border-sky-500/60 text-xs flex items-center justify-between cursor-pointer transition-all';
+                    el.innerHTML = `
+                        <div class="flex items-center gap-1.5 truncate">
+                            <span>🖼️</span>
+                            <span class="font-mono font-bold text-slate-200 truncate">${rNode.name}</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-[10px] text-slate-400 font-mono flex-shrink-0">
+                            <span>${rNode.components.length} comps</span>
+                            <span class="text-sky-400 font-bold">${rNode.childrenIds.length} sub</span>
+                        </div>
+                    `;
+                    el.addEventListener('click', () => {
+                        inspectNode(rId);
+                        focusNodeInGraph(rId, 1.5);
+                    });
+                    emittersList.appendChild(el);
+                });
+
+                listenersSection.classList.add('hidden');
+                paramsSection.classList.add('hidden');
+                connectedHubsSection.classList.add('hidden');
+                return;
+            }
+
+            if (nodeType === 'SCENE_NODE') {
+                const sNode = node.data.sNode;
+                const sf = node.data.sceneFlow;
+                currentInspectTarget = { file: sf.scenePath, nodePath: sNode.path, nodeName: sNode.name, nodeUuid: sNode.uuid, type: 'node' };
+
+                inspBadge.textContent = 'Scene Node';
+                inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-sky-950 text-sky-400 border border-sky-800';
+                inspDomain.textContent = sf.sceneName;
+                inspTitle.textContent = sNode.name;
+                btnFocusLabel.textContent = `Focus Node '${sNode.name}' in Cocos`;
+
+                const parentNode = (sNode.parentId && sf.nodes[sNode.parentId]) ? sf.nodes[sNode.parentId] : null;
+
+                inspPathRow.innerHTML = `
+                    <div><span class="text-slate-500 font-semibold">Scene:</span> <span class="text-slate-200">${sf.scenePath}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Path:</span> <span class="text-emerald-400 font-bold">${sNode.path}</span></div>
+                    ${parentNode ? `<div><span class="text-slate-500 font-semibold">Parent:</span> <span id="insp-parent-jump" class="text-sky-400 hover:text-sky-300 font-bold cursor-pointer underline">⬆️ ${parentNode.name}</span></div>` : ''}
+                    <div><span class="text-slate-500 font-semibold">Node UUID:</span> <span class="text-slate-400 font-mono text-[10px]">${sNode.uuid || 'N/A'}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Active:</span> <span class="${sNode.active ? 'text-emerald-400' : 'text-slate-500'} font-bold">${sNode.active ? 'Active 🟢' : 'Inactive ⚪'}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Components:</span> <span class="text-sky-300 font-bold">${sNode.components.length} attached</span></div>
+                    <div><span class="text-slate-500 font-semibold">Children:</span> <span class="text-slate-300 font-mono">${sNode.childrenIds.length} subnodes</span></div>
+                `;
+
+                if (parentNode) {
+                    const jumpEl = document.getElementById('insp-parent-jump');
+                    if (jumpEl) {
+                        jumpEl.addEventListener('click', () => {
+                            inspectNode(sNode.parentId);
+                            focusNodeInGraph(sNode.parentId, 1.4);
+                        });
+                    }
+                }
+
+                // 1. Attached Components
+                emittersSection.classList.remove('hidden');
+                document.getElementById('insp-emitters-title-text').textContent = "Attached Components";
+                document.getElementById('insp-emitters-count').textContent = sNode.components.length;
+
+                if (sNode.components.length === 0) {
+                    emittersList.innerHTML = '<div class="text-[11px] text-slate-500 italic p-2 bg-slate-900/40 rounded border border-slate-800">No components attached</div>';
+                } else {
+                    sNode.components.forEach(comp => {
+                        const el = document.createElement('div');
+                        el.className = `p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer ${comp.isCustomScript ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-200' : 'bg-slate-800/60 border-slate-700/60 text-slate-300'}`;
+                        el.innerHTML = `
+                            <div class="flex items-center gap-1.5 truncate">
+                                <span>${comp.isCustomScript ? '⚡' : '🧩'}</span>
+                                <span class="font-mono font-bold truncate">${comp.className}</span>
+                            </div>
+                            <span class="text-[10px] text-slate-400 font-mono flex-shrink-0">${comp.workflows.length} wf</span>
+                        `;
+                        el.addEventListener('click', () => {
+                            const compId = `comp_${sNode.id}_${comp.compId}`;
+                            inspectNode(compId);
+                            focusNodeInGraph(compId, 1.5);
+                        });
+                        emittersList.appendChild(el);
+                    });
+                }
+
+                // 2. Children Tree Navigation
+                listenersSection.classList.remove('hidden');
+                document.getElementById('insp-listeners-title-text').textContent = "Children Tree";
+                document.getElementById('insp-listeners-count').textContent = sNode.childrenIds.length;
+
+                if (sNode.childrenIds.length === 0) {
+                    listenersList.innerHTML = '<div class="text-[11px] text-slate-500 italic p-2 bg-slate-900/40 rounded border border-slate-800">No children nodes (Leaf)</div>';
+                } else {
+                    sNode.childrenIds.forEach(childId => {
+                        const cNode = sf.nodes[childId];
+                        const el = document.createElement('div');
+                        el.className = 'p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 hover:border-sky-500/60 text-xs flex items-center justify-between cursor-pointer transition-all';
+                        el.innerHTML = `
+                            <div class="flex items-center gap-1.5 truncate">
+                                <span>📦</span>
+                                <span class="font-mono font-bold text-slate-200 truncate">${cNode ? cNode.name : childId}</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-[10px] text-slate-400 font-mono flex-shrink-0">
+                                <span>${cNode ? cNode.components.length : 0} comps</span>
+                                ${cNode && cNode.childrenIds.length > 0 ? `<span class="text-sky-400 font-bold">(${cNode.childrenIds.length} sub)</span>` : ''}
+                            </div>
+                        `;
+                        el.addEventListener('click', () => {
+                            inspectNode(childId);
+                            focusNodeInGraph(childId, 1.5);
+                        });
+                        listenersList.appendChild(el);
+                    });
+                }
+
+                paramsSection.classList.add('hidden');
+                connectedHubsSection.classList.add('hidden');
+                return;
+            }
+
+            if (nodeType === 'SCENE_COMPONENT') {
+                const comp = node.data.comp;
+                const sNode = node.data.sNode;
+                const sf = node.data.sceneFlow;
+                currentInspectTarget = { file: sf.scenePath, nodePath: sNode.path, nodeName: sNode.name, nodeUuid: sNode.uuid, className: comp.className, compUuid: comp.compUuid, scriptFile: comp.scriptFile, type: 'component' };
+
+                inspBadge.textContent = comp.isCustomScript ? 'Custom Script' : 'Engine Component';
+                inspBadge.className = comp.isCustomScript 
+                    ? 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800'
+                    : 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-slate-800 text-slate-400 border border-slate-700';
+
+                inspDomain.textContent = sf.sceneName;
+                inspTitle.textContent = comp.className;
+                btnFocusLabel.textContent = `Focus '${comp.className}' in Cocos`;
+
+                inspPathRow.innerHTML = `
+                    <div><span class="text-slate-500 font-semibold">Node:</span> <span class="text-sky-300 font-bold">${sNode.path}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-white font-bold">${comp.className}</span></div>
+                    ${comp.compUuid ? `<div><span class="text-slate-500 font-semibold">Comp UUID:</span> <span class="text-slate-400 font-mono text-[10px]">${comp.compUuid}</span></div>` : ''}
+                    ${comp.scriptFile ? `<div><span class="text-slate-500 font-semibold">Source:</span> <span class="text-emerald-300 text-[10px] break-all">${comp.scriptFile}</span></div>` : ''}
+                    <div><span class="text-slate-500 font-semibold">Attached Workflows:</span> <span class="text-purple-300 font-bold">${comp.workflows.length}</span></div>
+                `;
+
+                // Parent Node
+                emittersSection.classList.remove('hidden');
+                document.getElementById('insp-emitters-title-text').textContent = "Parent Node";
+                document.getElementById('insp-emitters-count').textContent = "1";
+                const pEl = document.createElement('div');
+                pEl.className = 'p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 hover:border-sky-500/60 text-xs flex items-center justify-between cursor-pointer transition-all';
+                pEl.innerHTML = `
+                    <div class="flex items-center gap-1.5 truncate">
+                        <span>📦</span>
+                        <span class="font-mono font-bold text-sky-300 truncate">${sNode.name}</span>
+                    </div>
+                    <span class="text-[10px] text-slate-400 font-mono">${sNode.path}</span>
+                `;
+                pEl.addEventListener('click', () => {
+                    inspectNode(sNode.id);
+                    focusNodeInGraph(sNode.id, 1.5);
+                });
+                emittersList.appendChild(pEl);
+
+                // Component Workflows
+                if (comp.workflows.length > 0) {
+                    listenersSection.classList.remove('hidden');
+                    document.getElementById('insp-listeners-title-text').textContent = "Component Workflows";
+                    document.getElementById('insp-listeners-count').textContent = comp.workflows.length;
+
+                    comp.workflows.forEach((wf, wfIdx) => {
+                        const cleanWf = (wf.title || 'Workflow').replace(/^\(\s*/, '').replace(/\s*\)$/, '');
+                        const el = document.createElement('div');
+                        el.className = 'p-2 rounded-lg bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 hover:border-purple-600 text-xs flex flex-col gap-1 text-purple-200 cursor-pointer transition-all';
+                        el.innerHTML = `
+                            <div class="font-bold text-white font-mono">${cleanWf}</div>
+                            ${wf.detail ? `<div class="text-[10px] text-purple-300 font-mono">${wf.detail}</div>` : ''}
+                        `;
+                        el.addEventListener('click', () => {
+                            const wfId = `wf_comp_${sNode.id}_${comp.compId}_${wfIdx}`;
+                            focusNodeInGraph(wfId, 1.6);
+                        });
+                        listenersList.appendChild(el);
+                    });
+                } else {
+                    listenersSection.classList.add('hidden');
+                }
+
+                paramsSection.classList.add('hidden');
+                connectedHubsSection.classList.add('hidden');
+                return;
+            }
+
+            if (nodeType === 'SCENE_WORKFLOW') {
+                const wf = node.data.workflow;
+                const comp = node.data.comp;
+                const sNode = node.data.sNode;
+                const sf = node.data.sceneFlow;
+                currentInspectTarget = { file: sf.scenePath, nodePath: sNode.path, nodeName: sNode.name, nodeUuid: sNode.uuid, className: comp.className, type: 'workflow' };
+
+                const cleanTitle = (wf.title || 'Workflow').replace(/^\(\s*/, '').replace(/\s*\)$/, '');
+                inspBadge.textContent = 'Component Workflow';
+                inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-purple-950 text-purple-300 border border-purple-800';
+                inspDomain.textContent = sf.sceneName;
+                inspTitle.textContent = cleanTitle;
+                btnFocusLabel.textContent = `Focus Node '${sNode.name}' in Cocos`;
+
+                inspPathRow.innerHTML = `
+                    <div><span class="text-slate-500 font-semibold">Node:</span> <span class="text-sky-300 font-bold">${sNode.path}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-white font-bold">${comp.className}</span></div>
+                    ${wf.detail ? `<div><span class="text-slate-500 font-semibold">Detail:</span> <span class="text-purple-300 font-mono text-[11px]">${wf.detail}</span></div>` : ''}
+                    ${wf.targetAsset ? `<div><span class="text-slate-500 font-semibold">Target Asset:</span> <span class="text-emerald-400 font-bold font-mono">${wf.targetAsset}</span></div>` : ''}
+                `;
+
+                // Parent Component
+                emittersSection.classList.remove('hidden');
+                document.getElementById('insp-emitters-title-text').textContent = "Parent Component";
+                document.getElementById('insp-emitters-count').textContent = "1";
+                const cEl = document.createElement('div');
+                cEl.className = 'p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 hover:border-emerald-500/60 text-xs flex items-center justify-between cursor-pointer transition-all';
+                cEl.innerHTML = `
+                    <div class="flex items-center gap-1.5 truncate">
+                        <span>${comp.isCustomScript ? '⚡' : '🧩'}</span>
+                        <span class="font-mono font-bold text-emerald-300 truncate">${comp.className}</span>
+                    </div>
+                    <span class="text-[10px] text-slate-400 font-mono">${sNode.name}</span>
+                `;
+                cEl.addEventListener('click', () => {
+                    const compId = `comp_${sNode.id}_${comp.compId}`;
+                    inspectNode(compId);
+                    focusNodeInGraph(compId, 1.5);
+                });
+                emittersList.appendChild(cEl);
+
+                listenersSection.classList.add('hidden');
+                paramsSection.classList.add('hidden');
+                connectedHubsSection.classList.add('hidden');
+                return;
+            }
+
+            // Case: EVENT HUB or PTS_ASSET HUB
             const targetEventUuids = node.data.targetEventUuids || (node.data.uuid ? [node.data.uuid] : []);
             const connectedHubs = targetEventUuids.map(u => NETWORK_DATA[u]).filter(Boolean);
 
@@ -1101,24 +1663,15 @@
                 inspDomain.textContent = `${connectedHubs[0].domainIcon || ''} ${connectedHubs[0].domain || ''}`;
             }
 
-            // Case: EVENT HUB or PTS_ASSET HUB
             if (nodeType === 'EVENT' || nodeType === 'PARAM' || nodeType === 'PTS_ASSET') {
                 const eventItem = node.data.raw;
-                currentInspectTarget = {
-                    uuid: eventItem.uuid,
-                    path: eventItem.path,
-                    file: eventItem.path,
-                    name: eventItem.name,
-                    type: 'asset'
-                };
-
+                currentInspectTarget = { uuid: eventItem.uuid, path: eventItem.path, file: eventItem.path, name: eventItem.name, type: 'asset' };
                 const isPts = nodeType === 'PTS_ASSET';
+
                 inspBadge.textContent = isPts ? 'pTSAsset Model' : (nodeType === 'PARAM' ? 'Param Asset' : 'Event Hub');
                 inspBadge.className = isPts 
                     ? 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-purple-950 text-purple-300 border border-purple-800'
-                    : (nodeType === 'PARAM'
-                        ? 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-amber-950 text-amber-400 border border-amber-800'
-                        : 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-sky-950 text-sky-400 border border-sky-800');
+                    : (nodeType === 'PARAM' ? 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-amber-950 text-amber-400 border border-amber-800' : 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-sky-950 text-sky-400 border border-sky-800');
 
                 inspTitle.textContent = eventItem.name;
                 btnFocusLabel.textContent = `Focus '${eventItem.name}' in Editor`;
@@ -1130,13 +1683,11 @@
                     <div class="text-[10px] text-slate-500 pt-0.5"><span class="text-slate-600 font-semibold">UUID:</span> ${eventItem.uuid}</div>
                 `;
 
-                // Display serialized pTSAsset value if available
                 if (isPts && eventItem.ptsValue) {
                     ptsDataBox.classList.remove('hidden');
                     ptsJson.textContent = JSON.stringify(eventItem.ptsValue, null, 2);
                 }
 
-                // Emitters
                 emittersSection.classList.remove('hidden');
                 document.getElementById('insp-emitters-count').textContent = eventItem.emitters.length;
                 if (eventItem.emitters.length === 0) {
@@ -1145,7 +1696,6 @@
                     eventItem.emitters.forEach(e => emittersList.appendChild(renderEmitterCard(e)));
                 }
 
-                // Listeners
                 listenersSection.classList.remove('hidden');
                 document.getElementById('insp-listeners-count').textContent = eventItem.listeners.length;
                 if (eventItem.listeners.length === 0) {
@@ -1154,76 +1704,12 @@
                     eventItem.listeners.forEach(l => listenersList.appendChild(renderListenerCard(l)));
                 }
 
-                // Params
                 if (eventItem.params && eventItem.params.length > 0) {
                     paramsSection.classList.remove('hidden');
                     document.getElementById('insp-params-count').textContent = eventItem.params.length;
                     eventItem.params.forEach(p => paramsList.appendChild(renderParamCard(p)));
                 } else {
                     paramsSection.classList.add('hidden');
-                }
-            }
-            // Case: EMITTER
-            else if (nodeType === 'EMITTER') {
-                const emit = node.data.emit;
-                currentInspectTarget = { file: emit.file, node: emit.node, className: emit.className, scriptFile: emit.scriptFile, type: 'emitter' };
-                inspBadge.textContent = 'Emitter Trigger';
-                inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800';
-                inspTitle.textContent = `${emit.node} · ${emit.className}`;
-                btnFocusLabel.textContent = `Focus '${emit.node}' in ${emit.file.endsWith('.prefab') ? 'Prefab' : 'Scene'}`;
-
-                inspPathRow.innerHTML = `
-                    <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200">${emit.file}</span></div>
-                    <div><span class="text-slate-500 font-semibold">Node:</span> <span class="text-emerald-400 font-bold">${emit.node}</span></div>
-                    <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-sky-300 font-bold">${emit.className}</span></div>
-                    <div><span class="text-slate-500 font-semibold">⚡ Trigger:</span> <span class="text-white font-bold">${emit.trigger}</span></div>
-                `;
-
-                // Link to workflow if matching
-                const matchingWf = WORKFLOWS_DATA.find(w => w.entryPoint.includes(emit.className));
-                if (matchingWf) {
-                    btnTraceWf.classList.remove('hidden');
-                    btnTraceWf.onclick = () => {
-                        activeViewMode = "WORKFLOW";
-                        activeWorkflowId = matchingWf.id;
-                        updateViewModeTabs();
-                        populateSidebarList();
-                        renderWorkflowGraph(matchingWf);
-                    };
-                }
-
-                emittersSection.classList.add('hidden');
-                paramsSection.classList.add('hidden');
-
-                if (connectedHubs.length > 0) {
-                    connectedHubsSection.classList.remove('hidden');
-                    document.getElementById('insp-hubs-count').textContent = connectedHubs.length;
-                    connectedHubs.forEach(hub => connectedHubsList.appendChild(renderConnectedHubCard(hub)));
-                }
-            }
-            // Case: LISTENER
-            else if (nodeType === 'LISTENER') {
-                const list = node.data.list;
-                currentInspectTarget = { file: list.file, node: list.node, className: list.className, scriptFile: list.scriptFile, type: 'listener' };
-                inspBadge.textContent = 'Listener Handler';
-                inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-purple-950 text-purple-400 border border-purple-800';
-                inspTitle.textContent = `${list.node} · ${list.className}`;
-                btnFocusLabel.textContent = `Focus '${list.node}' in ${list.file.endsWith('.prefab') ? 'Prefab' : 'Scene'}`;
-
-                inspPathRow.innerHTML = `
-                    <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200">${list.file}</span></div>
-                    <div><span class="text-slate-500 font-semibold">Node:</span> <span class="text-purple-400 font-bold">${list.node}</span></div>
-                    <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-sky-300 font-bold">${list.className}</span></div>
-                    <div><span class="text-slate-500 font-semibold">🎧 Handler:</span> <span class="text-white font-bold">${list.boundMethod || list.property}()</span></div>
-                `;
-
-                listenersSection.classList.add('hidden');
-                paramsSection.classList.add('hidden');
-
-                if (connectedHubs.length > 0) {
-                    connectedHubsSection.classList.remove('hidden');
-                    document.getElementById('insp-hubs-count').textContent = connectedHubs.length;
-                    connectedHubs.forEach(hub => connectedHubsList.appendChild(renderConnectedHubCard(hub)));
                 }
             }
         }
@@ -1312,29 +1798,19 @@
             return el;
         }
 
-        function renderConnectedHubCard(hub) {
-            const isPts = hub.assetType === 'pts';
-            const el = document.createElement('div');
-            el.className = `p-2 rounded-lg border text-xs cursor-pointer transition-all flex items-center justify-between ${isPts ? 'bg-purple-950/60 border-purple-800/60 text-purple-200 hover:border-purple-400' : 'bg-sky-950/60 border-sky-800/60 text-sky-200 hover:border-sky-400'}`;
-            el.innerHTML = `
-                <div class="flex items-center gap-1.5 truncate">
-                    <span>${isPts ? '💎' : '⚡'}</span>
-                    <span class="font-mono font-bold truncate">${hub.name}</span>
-                </div>
-                <span class="text-[10px] opacity-75">${hub.domain}</span>
-            `;
-            el.addEventListener('click', () => {
-                focusNodeInGraph("evt_" + hub.uuid, 1.4);
-            });
-            return el;
-        }
-
         function updateViewModeTabs() {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             if (activeViewMode === "ALL") document.getElementById('mode-all').classList.add('active');
             else if (activeViewMode === "JSON") document.getElementById('mode-json').classList.add('active');
             else if (activeViewMode === "PTS") document.getElementById('mode-pts').classList.add('active');
+            else if (activeViewMode === "SCENEFLOW") document.getElementById('mode-sceneflow').classList.add('active');
             else if (activeViewMode === "WORKFLOW") document.getElementById('mode-workflow').classList.add('active');
+
+            const isSceneFlow = activeViewMode === "SCENEFLOW";
+            document.getElementById('btn-toggle-neighborhood').classList.toggle('hidden', isSceneFlow);
+            document.getElementById('btn-toggle-aggregate').classList.toggle('hidden', isSceneFlow);
+            document.getElementById('role-toggles-container').classList.toggle('hidden', isSceneFlow);
+            document.getElementById('btn-toggle-unconnected').classList.toggle('hidden', isSceneFlow);
         }
 
         // Setup Event Listeners
@@ -1361,6 +1837,13 @@
             });
             document.getElementById('mode-pts').addEventListener('click', () => {
                 activeViewMode = "PTS";
+                updateViewModeTabs();
+                renderDynamicDomainFilters();
+                populateSidebarList();
+                initNetwork();
+            });
+            document.getElementById('mode-sceneflow').addEventListener('click', () => {
+                activeViewMode = "SCENEFLOW";
                 updateViewModeTabs();
                 renderDynamicDomainFilters();
                 populateSidebarList();

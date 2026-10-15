@@ -42,43 +42,141 @@ export const $ = {
     frame: '.nexus-frame'
 };
 
-export async function focusTargetInEditor(target: { uuid?: string; path?: string; file?: string; node?: string }) {
+export async function focusTargetInEditor(target: {
+    uuid?: string;
+    path?: string;
+    file?: string;
+    node?: string;
+    nodePath?: string;
+    nodeUuid?: string;
+    nodeName?: string;
+    className?: string;
+    scriptFile?: string;
+    type?: string;
+}) {
     try {
-        let uuid = target.uuid;
         const filePath = target.file || target.path || '';
+        const targetType = target.type || (target.node || target.nodePath ? 'node' : 'asset');
 
-        if (!uuid && filePath) {
-            const dbPath = filePath.startsWith('assets/') || filePath.startsWith('extensions/') ? `db://${filePath}` : (filePath.startsWith('db://') ? filePath : `db://${filePath}`);
+        let fileAssetUuid = target.uuid;
+        if (!fileAssetUuid && filePath) {
+            const dbPath = filePath.startsWith('assets/') || filePath.startsWith('extensions/')
+                ? `db://${filePath}`
+                : (filePath.startsWith('db://') ? filePath : `db://${filePath}`);
             try {
-                const queryUuid = await Editor.Message.request('asset-db', 'query-uuid', dbPath);
-                if (queryUuid) {
-                    uuid = queryUuid;
-                }
+                fileAssetUuid = await Editor.Message.request('asset-db', 'query-uuid', dbPath);
             } catch {}
         }
 
-        if (uuid) {
-            console.log(`[${pkg.name}] 🎯 Focusing asset in Cocos Creator: ${uuid} (${filePath})`);
+        // ========================================================
+        // 1. SCENE ASSET FOCUS: Just open / select the scene/prefab
+        // ========================================================
+        if (targetType === 'scene' || (!target.node && !target.nodePath && !target.nodeUuid)) {
+            if (fileAssetUuid) {
+                console.log(`[${pkg.name}] 🎯 Opening asset in Cocos Creator: ${fileAssetUuid} (${filePath})`);
+                try {
+                    if (Editor.Selection && typeof Editor.Selection.select === 'function') {
+                        Editor.Selection.select('asset', fileAssetUuid);
+                    }
+                } catch {}
+                try {
+                    await Editor.Message.send('assets', 'twinkle', fileAssetUuid);
+                } catch {}
+                try {
+                    await Editor.Message.request('asset-db', 'open-asset', fileAssetUuid);
+                } catch {}
+            }
+            return;
+        }
 
+        // ========================================================
+        // 2. NODE / COMPONENT / WORKFLOW FOCUS IN SCENE
+        // ========================================================
+        const targetNodePath = target.nodePath || target.node || '';
+        const targetNodeName = target.nodeName || targetNodePath.split('/').pop() || '';
+        let resolvedNodeUuid: string | null = target.nodeUuid || null;
+
+        const findNodeInTree = (curr: any, pathSoFar: string): string | null => {
+            if (!curr) return null;
+            const fullPath = pathSoFar ? `${pathSoFar}/${curr.name}` : curr.name;
+
+            if (target.nodeUuid && curr.uuid === target.nodeUuid) {
+                return curr.uuid;
+            }
+            if (targetNodePath && (fullPath === targetNodePath || fullPath.endsWith('/' + targetNodePath))) {
+                return curr.uuid;
+            }
+            if (targetNodeName && curr.name === targetNodeName) {
+                return curr.uuid;
+            }
+
+            if (Array.isArray(curr.children)) {
+                for (const child of curr.children) {
+                    const found = findNodeInTree(child, fullPath);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+
+        // Step A: Check if target node is already in current active scene tree
+        let sceneTree: any = null;
+        try {
+            sceneTree = await Editor.Message.request('scene', 'query-node-tree');
+        } catch {}
+
+        let foundUuid = sceneTree ? findNodeInTree(sceneTree, '') : null;
+
+        // Step B: If not found in current scene and target file is specified, open asset in Cocos and re-query
+        if (!foundUuid && fileAssetUuid && (filePath.endsWith('.scene') || filePath.endsWith('.prefab'))) {
+            try {
+                console.log(`[${pkg.name}] Opening asset '${filePath}' in Cocos to focus node...`);
+                await Editor.Message.request('asset-db', 'open-asset', fileAssetUuid);
+                // Give editor time to switch and initialize scene hierarchy
+                await new Promise(r => setTimeout(r, 800));
+                sceneTree = await Editor.Message.request('scene', 'query-node-tree');
+                if (sceneTree) {
+                    foundUuid = findNodeInTree(sceneTree, '');
+                }
+            } catch (openErr) {
+                console.warn(`[${pkg.name}] Failed to open asset for node inspection:`, openErr);
+            }
+        }
+
+        if (foundUuid) {
+            resolvedNodeUuid = foundUuid;
+        }
+
+        if (resolvedNodeUuid) {
+            console.log(`[${pkg.name}] 🎯 Highlighting & focusing live node in Cocos: ${resolvedNodeUuid} (${targetNodePath || targetNodeName})`);
+
+            // 1. Select node in Editor.Selection (this highlights node in Hierarchy and loads it into Inspector)
             try {
                 if (Editor.Selection && typeof Editor.Selection.select === 'function') {
-                    Editor.Selection.select('asset', uuid);
+                    Editor.Selection.select('node', resolvedNodeUuid);
                 }
             } catch {}
 
+            // 2. Notify scene process of selection change
             try {
-                await Editor.Message.send('assets', 'twinkle', uuid);
+                await Editor.Message.send('scene', 'change-node-selection', [resolvedNodeUuid]);
             } catch {}
 
+            // 3. Focus scene viewport camera onto the node
             try {
-                await Editor.Message.send('assets', 'select', uuid);
-            } catch {}
-
-            if (filePath.endsWith('.prefab') || filePath.endsWith('.scene')) {
+                await Editor.Message.request('scene', 'focus-camera', [resolvedNodeUuid]);
+            } catch {
                 try {
-                    await Editor.Message.request('asset-db', 'open-asset', uuid);
+                    await Editor.Message.send('scene', 'focus-camera', [resolvedNodeUuid]);
                 } catch {}
             }
+
+            // 4. Twinkle / flash in Hierarchy panel
+            try {
+                await Editor.Message.send('hierarchy', 'twinkle', resolvedNodeUuid);
+            } catch {}
+        } else {
+            console.warn(`[${pkg.name}] Node '${targetNodePath || targetNodeName}' not found in active scene hierarchy.`);
         }
     } catch (e) {
         console.error(`[${pkg.name}] Failed to focus target in Editor:`, e);
