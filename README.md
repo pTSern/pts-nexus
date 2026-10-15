@@ -73,20 +73,34 @@
   * **Scenes & Prefabs**
   * **Component Scripts**
   * **Event Channels (`pEngine.Json`)**
-  * **pTSAsset Data Models**
+  * **pTSAsset Reactive Models (`.pts`, `pTSAsset_Data`, `FiniteState_Machine`)**
+  * **Function Workflow Pipelines (GitNexus execution chains)**
 * Graph Edges represent:
   * **Emits / Triggers**
   * **Listens / Receives**
-  * **Instantiates / References**
+  * **Instantiates / References / Mutates**
 
 ---
 
-### 3.4. Interactive Visualizer (`source/template/visualizer.html.ts`)
-* Renders the generated graph inside a hardware-accelerated interactive canvas.
-* **Search & Filter**: Search by event name, class name, or node path.
-* **Cluster Grouping**: Groups nodes by subsystem (e.g. Battle, Lobby, Audio, UI, Storage).
-* **Two-Way Editor Synchronization**: Clicking any component node in the visualizer immediately selects and focuses that node or asset in the Cocos Creator editor!
-* **Standalone HTML Export**: Generates a self-contained HTML file for documentation and team architecture reviews.
+### 3.4. Function Workflow Analyzer (`source/engine/FunctionWorkflowAnalyzer.ts`)
+* Inspired by the **GitNexus** architecture:
+  * Uses TypeScript AST Compiler API to extract method calls, event invokes, and state changes.
+  * Identifies **Entry Points** (`onClick`, lifecycle hooks, event listeners).
+  * Constructs directed DAG execution pipelines showing step-by-step game feature flows.
+
+---
+
+### 3.5. Interactive Visualizer 2.0 (`static/template/visualizer.html`)
+* **Silky Smooth 60 FPS Performance**:
+  * **Ego-Graph / Neighborhood Mode**: Default focus on 1-2 hop neighborhood, reducing active canvas nodes from 3,000+ to <50.
+  * **Auto-Freeze Barnes-Hut Physics**: Stabilizes in 60 ticks and freezes physics to prevent CPU lag.
+  * **Component Aggregation Mode**: Consolidates multiple emits/listens per component into a single card (reducing node count by 70%).
+* **Multi-Dimensional Filters**:
+  * **View Mode Tabs**: `[All]` `[JsonAsset]` `[pTSAsset]` `[Workflows]`.
+  * **Scene & Prefab Scope**: Dropdown to isolate specific scenes (`game.scene`) or prefabs.
+  * **Role Toggles**: Toggle Emitters `[⚡]`, Listeners `[🎧]`, Params `[📦]`.
+* **Two-Way Editor Synchronization**: Clicking any component or asset immediately focuses that target in the Cocos Creator editor!
+* **Standalone HTML Export**: Generates a self-contained HTML file for offline exploration.
 
 ---
 
@@ -98,7 +112,7 @@
 | Message | Description |
 |---|---|
 | `open-panel` | Opens the dockable Nexus graph window. |
-| `scan-network` | Triggers a full AST and scene scan to rebuild the dependency network. |
+| `scan-network` | Triggers a full AST, pTSAsset, and scene scan to rebuild the network. |
 | `generate-html` | Exports the full interactive graph as a standalone HTML file. |
 
 ---
@@ -107,5 +121,7 @@
 
 * Specifically parses and visualizes communication patterns built with:
   * `pEngine.Json.emit` and `pEngine.Json.on`
-  * `Event_Driver` event listeners and handlers
-  * `pTSAsset` data injection flows
+  * `Event_Driver` and `Event_Flexer` listeners and handlers
+  * `pTSAsset` (`.pts`) data models, state machines, and reactive state mutations
+  * Cross-component method call chains and execution workflows
+

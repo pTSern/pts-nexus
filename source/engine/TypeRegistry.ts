@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { CocosUuidUtils } from './CocosUuidUtils';
+import { FunctionWorkflowAnalyzer } from './FunctionWorkflowAnalyzer';
 
 export interface ClassPropertyMeta {
     name: string;
@@ -96,6 +97,7 @@ export class TypeRegistry {
                         const content = await fs.promises.readFile(full, 'utf8');
                         const rel = path.relative(projectPath, full).replace(/\\/g, '/');
                         this.parseSource(content, rel, pathToUuid.get(rel));
+                        FunctionWorkflowAnalyzer.analyzeSource(content, full);
                     } catch {}
                 }
             }

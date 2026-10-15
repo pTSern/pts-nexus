@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KingdomMatch - JsonAsset Event Nexus</title>
+    <title>KingdomMatch - pTS Nexus Architecture Visualizer</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Vis.js Network CDN -->
@@ -50,93 +50,123 @@
             background: #475569;
             border-radius: 2px;
         }
+        .tab-btn.active {
+            background-color: #0284c7;
+            color: #ffffff;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+        }
+        .role-btn.active {
+            border-color: #38bdf8;
+            background-color: rgba(14, 165, 233, 0.2);
+            color: #e0f2fe;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col antialiased select-none">
 
     <!-- Top Navigation Header -->
-    <header class="h-16 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-4 z-20 shrink-0 gap-4">
-        <!-- Left: Logo, Title & Action Buttons (Refresh & Export) -->
+    <header class="h-16 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between px-4 z-20 shrink-0 gap-3">
+        <!-- Left: Logo, Title & Mode Tabs -->
         <div class="flex items-center space-x-3 shrink-0 min-w-max">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-sky-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-sky-500/20">
                 <i class="ph-bold ph-git-merge text-white text-xl"></i>
             </div>
             <div>
                 <h1 class="font-bold text-base tracking-wide text-white flex items-center gap-2">
-                    pTS Event Nexus <span class="text-xs px-2 py-0.5 rounded-full bg-sky-950 text-sky-400 border border-sky-800 font-mono">Visualizer</span>
+                    pTS Nexus <span class="text-xs px-2 py-0.5 rounded-full bg-sky-950 text-sky-400 border border-sky-800 font-mono">2.0</span>
                 </h1>
-                <p class="text-xs text-slate-400">pEngine.Json Event Bus & Parameter Registry</p>
+                <p class="text-[11px] text-slate-400">Architecture & Execution Topology</p>
             </div>
 
-            <!-- Action Buttons: Refresh Network & Export HTML -->
-            <div class="flex items-center space-x-1.5 ml-2 pl-2 border-l border-slate-800">
-                <button id="btn-refresh-network" title="Re-scan project and refresh event network" class="px-2.5 py-1.5 rounded-lg bg-sky-950 hover:bg-sky-900 active:bg-sky-950 text-sky-300 hover:text-white border border-sky-700/60 shadow-sm transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
-                    <i id="refresh-icon" class="ph-bold ph-arrows-clockwise text-sm text-sky-400"></i>
-                    <span>Refresh</span>
+            <!-- View Mode Switcher -->
+            <div class="flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700/70 ml-2 text-xs font-semibold">
+                <button id="mode-all" class="tab-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-1 active">
+                    <i class="ph-bold ph-squares-four"></i> <span>All</span>
                 </button>
-                <button id="btn-export-html" title="Export standalone interactive HTML visualizer (json_event_network.html)" class="px-2.5 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 active:bg-emerald-950 text-emerald-300 hover:text-white border border-emerald-700/60 shadow-sm transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
-                    <i class="ph-bold ph-file-html text-sm text-emerald-400"></i>
-                    <span>Export HTML</span>
+                <button id="mode-json" class="tab-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-1">
+                    <i class="ph-bold ph-lightning"></i> <span>JsonAsset</span>
+                </button>
+                <button id="mode-pts" class="tab-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-1">
+                    <i class="ph-bold ph-diamond"></i> <span>pTSAsset</span>
+                </button>
+                <button id="mode-workflow" class="tab-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-1">
+                    <i class="ph-bold ph-git-branch"></i> <span>Workflows</span>
                 </button>
             </div>
         </div>
 
-        <!-- Center: Centered Search Bar -->
-        <div class="flex-1 max-w-xl mx-auto flex items-center justify-center">
-            <div class="relative w-full max-w-lg">
+        <!-- Center: Search & Scope Filter -->
+        <div class="flex-1 max-w-xl mx-2 flex items-center gap-2">
+            <!-- Search Bar -->
+            <div class="relative flex-1">
                 <i class="ph ph-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-base"></i>
-                <input id="search-input" type="text" placeholder="Search event, component (e.g. AdsManager), node, or trigger..." 
-                    class="w-full bg-slate-800/80 border border-slate-700 text-sm rounded-lg pl-9 pr-8 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all shadow-inner">
+                <input id="search-input" type="text" placeholder="Search event, pTSAsset, method, or component..." 
+                    class="w-full bg-slate-800/80 border border-slate-700 text-xs rounded-lg pl-9 pr-8 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all shadow-inner">
                 <button id="clear-search" class="hidden absolute right-2.5 top-2.5 text-slate-400 hover:text-white">
                     <i class="ph ph-x"></i>
                 </button>
             </div>
+
+            <!-- Scene / Prefab Scope Dropdown -->
+            <div class="relative shrink-0">
+                <select id="scope-select" class="bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-2 focus:outline-none focus:border-sky-500 max-w-[150px] truncate cursor-pointer shadow-inner">
+                    <option value="ALL">📁 All Files</option>
+                </select>
+            </div>
         </div>
 
-        <!-- Right: Color Legend & Action Controls -->
-        <div class="flex items-center space-x-2 shrink-0 min-w-max">
-            <!-- Color Legend -->
-            <div class="hidden 2xl:flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs font-medium mr-1 shadow-inner">
-                <div class="flex items-center gap-1.5">
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
-                    <span class="text-slate-300">Emitter</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <span class="w-2.5 h-2.5 rounded-md bg-sky-500 shadow-sm shadow-sky-500/50"></span>
-                    <span class="text-slate-300">Hub</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <span class="w-2.5 h-2.5 rounded-full bg-fuchsia-500 shadow-sm shadow-fuchsia-500/50"></span>
-                    <span class="text-slate-300">Listener</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <span class="w-2.5 h-2.5 rounded-md bg-amber-500 shadow-sm shadow-amber-500/50"></span>
-                    <span class="text-slate-300">Param</span>
-                </div>
-            </div>
-
-            <!-- HIDE UNCONNECTED / ORPHAN TOGGLE -->
-            <button id="btn-toggle-unconnected" title="Hide Unconnected / Orphan Events" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-1.5 text-xs">
-                <i id="unconnected-icon" class="ph-bold ph-funnel text-sm text-slate-400"></i>
-                <span id="unconnected-label" class="hidden sm:inline">Active Only</span>
+        <!-- Right: Performance Controls & Action Buttons -->
+        <div class="flex items-center space-x-1.5 shrink-0 min-w-max text-xs">
+            <!-- Ego-Graph / Neighborhood Toggle (Massive Speedup) -->
+            <button id="btn-toggle-neighborhood" title="Toggle Neighborhood Focus Mode (Only shows active cluster for max 60 FPS)" 
+                class="px-2.5 py-1.5 rounded-lg bg-sky-950/80 border border-sky-700/60 text-sky-300 hover:text-white transition-all flex items-center gap-1.5 font-medium shadow-sm">
+                <i class="ph-bold ph-crosshair text-sm text-sky-400"></i>
+                <span id="neighborhood-label">Focus (60fps)</span>
             </button>
 
-            <!-- MOTION TOGGLE -->
-            <button id="btn-toggle-physics" title="Pause / Freeze Animation (Right-Click Canvas or Space)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-1 text-xs">
+            <!-- Component Aggregation Mode Toggle -->
+            <button id="btn-toggle-aggregate" title="Aggregate multiple emits/listens by Component to reduce box count"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+                <i class="ph-bold ph-package text-sm text-amber-400"></i>
+                <span id="aggregate-label" class="hidden sm:inline">Compact</span>
+            </button>
+
+            <!-- Role Toggles -->
+            <div class="hidden xl:flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/60 gap-0.5">
+                <button id="btn-toggle-emitter" class="role-btn active px-2 py-1 rounded text-[11px] text-emerald-300 hover:text-white transition-all" title="Toggle Emitters">⚡ Emitter</button>
+                <button id="btn-toggle-listener" class="role-btn active px-2 py-1 rounded text-[11px] text-fuchsia-300 hover:text-white transition-all" title="Toggle Listeners">🎧 Listener</button>
+                <button id="btn-toggle-param" class="role-btn active px-2 py-1 rounded text-[11px] text-amber-300 hover:text-white transition-all" title="Toggle Params">📦 Param</button>
+            </div>
+
+            <!-- Active Only / Orphans Toggle -->
+            <button id="btn-toggle-unconnected" title="Hide Unconnected / Orphan Events" class="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-1">
+                <i id="unconnected-icon" class="ph-bold ph-funnel text-sm text-slate-400"></i>
+                <span class="hidden 2xl:inline">Active</span>
+            </button>
+
+            <!-- Motion Freeze Toggle -->
+            <button id="btn-toggle-physics" title="Pause / Freeze Physics Motion" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all">
                 <i id="physics-icon" class="ph-bold ph-pause text-sm text-amber-400"></i>
             </button>
 
-            <button id="btn-zoom-in" title="Zoom In (+)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all">
-                <i class="ph-bold ph-plus text-base"></i>
+            <!-- Zoom Controls -->
+            <button id="btn-zoom-in" title="Zoom In (+)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                <i class="ph-bold ph-plus text-xs"></i>
             </button>
-            <button id="btn-zoom-out" title="Zoom Out (-)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all">
-                <i class="ph-bold ph-minus text-base"></i>
+            <button id="btn-zoom-out" title="Zoom Out (-)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                <i class="ph-bold ph-minus text-xs"></i>
             </button>
-            <button id="btn-fit-zoom" title="Fit to Screen" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all">
-                <i class="ph ph-corners-out text-lg"></i>
+            <button id="btn-fit-zoom" title="Fit to Screen" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                <i class="ph ph-corners-out text-sm"></i>
             </button>
-            <button id="btn-re-layout" title="Re-stabilize Layout" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all">
-                <i class="ph ph-arrows-clockwise text-lg"></i>
+
+            <!-- Refresh & Export -->
+            <button id="btn-refresh-network" title="Re-scan project" class="p-2 rounded-lg bg-sky-950 hover:bg-sky-900 text-sky-300 border border-sky-700/60 ml-1">
+                <i id="refresh-icon" class="ph-bold ph-arrows-clockwise text-sm"></i>
+            </button>
+            <button id="btn-export-html" title="Export HTML visualizer" class="p-2 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60">
+                <i class="ph-bold ph-file-html text-sm"></i>
             </button>
         </div>
     </header>
@@ -144,13 +174,14 @@
     <!-- Main Workspace -->
     <div class="flex-1 flex overflow-hidden relative">
 
-        <!-- Left Sidebar: Event List Explorer -->
+        <!-- Left Sidebar: Catalog Explorer -->
         <aside id="left-sidebar" class="w-80 bg-slate-900/95 border-r border-slate-800 flex flex-col z-10 transition-all duration-300 shrink-0">
             <div class="p-3.5 border-b border-slate-800 flex items-center justify-between">
                 <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <i class="ph ph-tree-structure text-sky-400 text-base"></i> Event Catalog (<span id="event-count">0</span>)
+                    <i id="sidebar-icon" class="ph ph-tree-structure text-sky-400 text-base"></i> 
+                    <span id="sidebar-title">Catalog</span> (<span id="event-count">0</span>)
                 </span>
-                <span class="text-[11px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Click to inspect</span>
+                <span id="sidebar-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Click to focus</span>
             </div>
             
             <div id="event-list" class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
@@ -162,20 +193,30 @@
         <main class="flex-1 relative flex flex-col overflow-hidden">
             <div id="network-canvas"></div>
 
+            <!-- Stats Overlay Badge -->
+            <div class="absolute top-4 right-4 z-10 pointer-events-none flex flex-col items-end gap-1">
+                <div class="n8n-card px-2.5 py-1 rounded-lg border border-slate-700/60 text-[11px] font-mono text-slate-300 shadow-lg pointer-events-auto flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="stats-rendered-nodes">0</span> nodes rendered
+                    <span class="text-slate-500">|</span>
+                    <span id="stats-total-catalog">0</span> in project
+                </div>
+            </div>
+
             <!-- Physics Status Toast Notification -->
-            <div id="physics-toast" class="hidden absolute top-5 right-5 n8n-card px-3.5 py-2 rounded-xl text-xs font-semibold z-10 shadow-2xl transition-all flex items-center gap-2 border"></div>
+            <div id="physics-toast" class="hidden absolute top-14 right-4 n8n-card px-3 py-1.5 rounded-xl text-xs font-semibold z-10 shadow-2xl transition-all flex items-center gap-2 border"></div>
 
             <!-- Top Left Sidebar Toggle Button -->
-            <div class="absolute top-5 left-5 flex flex-col gap-2 z-10">
-                <button id="toggle-sidebar-btn" class="p-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 shadow-lg text-sm flex items-center gap-1.5 transition-all">
+            <div class="absolute top-4 left-4 flex flex-col gap-2 z-10">
+                <button id="toggle-sidebar-btn" class="p-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 shadow-lg text-xs flex items-center gap-1.5 transition-all">
                     <i class="ph ph-sidebar text-base"></i> <span>Catalog</span>
                 </button>
             </div>
 
-            <!-- Bottom Floating Filter Bar: Positioned at Bottom Center with 90% Width of Center View -->
-            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 w-[95%] pointer-events-none z-10 flex justify-center">
+            <!-- Bottom Floating Domain Filter Bar -->
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 w-[92%] pointer-events-none z-10 flex justify-center">
                 <div id="domain-filters-container" class="filter-container n8n-card p-1.5 rounded-2xl border border-slate-700/60 text-xs overflow-x-auto w-full flex items-center justify-start sm:justify-center gap-1 shadow-2xl pointer-events-auto">
-                    <!-- Dynamically populated via JS -->
+                    <!-- Populated via JS -->
                 </div>
             </div>
         </main>
@@ -189,9 +230,9 @@
                 </div>
                 <h3 class="font-semibold text-slate-300 mb-1 text-sm">No Node Selected</h3>
                 <p class="text-xs text-slate-500 leading-relaxed space-y-1">
-                    <span>Click any node to inspect its wiring.</span><br/>
-                    <span class="text-sky-400 font-mono text-[11px]">Right-Click to Freeze/Stop motion</span><br/>
-                    <span class="text-emerald-400 font-mono text-[11px]">Double-Click to Zoom In</span> • <span class="text-slate-400 font-mono text-[11px]">+ / - to Zoom</span>
+                    <span>Click any node in graph to inspect details.</span><br/>
+                    <span class="text-sky-400 font-mono text-[11px]">Right-Click to Freeze/Unfreeze motion</span><br/>
+                    <span class="text-emerald-400 font-mono text-[11px]">Double-Click node to Center & Focus</span>
                 </p>
             </div>
 
@@ -206,28 +247,40 @@
                     
                     <h2 id="insp-title" class="text-base font-bold text-white break-words"></h2>
                     
-                    <!-- FOCUS IN COCOS CREATOR BUTTON -->
-                    <button id="btn-focus-in-cocos" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-semibold shadow-lg shadow-sky-600/30 transition-all cursor-pointer border border-sky-400/40">
-                        <i class="ph-bold ph-crosshair text-sm"></i>
-                        <span id="btn-focus-label">Focus in Cocos Creator</span>
-                    </button>
+                    <!-- Action Buttons -->
+                    <div class="flex flex-col gap-2">
+                        <button id="btn-focus-in-cocos" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-semibold shadow-lg shadow-sky-600/30 transition-all cursor-pointer border border-sky-400/40">
+                            <i class="ph-bold ph-crosshair text-sm"></i>
+                            <span id="btn-focus-label">Focus in Cocos Creator</span>
+                        </button>
+                        <button id="btn-trace-workflow" class="hidden w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-950 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-300 hover:text-white text-xs font-semibold transition-all cursor-pointer">
+                            <i class="ph-bold ph-git-branch text-sm text-indigo-400"></i>
+                            <span>Trace Execution Workflow</span>
+                        </button>
+                    </div>
 
-                    <!-- Dedicated Reference Path Box -->
+                    <!-- Reference Path Box -->
                     <div id="insp-meta-box" class="space-y-2 p-3.5 rounded-xl bg-slate-800/90 border border-slate-700/70 text-xs font-mono shadow-md">
                         <div class="text-[11px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-700/60 pb-1.5">
-                            <i class="ph-bold ph-git-commit text-sm"></i> Reference Path
+                            <i class="ph-bold ph-git-commit text-sm"></i> Reference Details
                         </div>
                         <div id="insp-path-row" class="space-y-1 select-text"></div>
                     </div>
 
-                    <!-- Connected Event Hubs Section (Supports Multiple Connected Hubs) -->
+                    <!-- pTSAsset Data Inspection (Shown when pTSAsset is selected) -->
+                    <div id="insp-pts-data-box" class="hidden space-y-2 p-3.5 rounded-xl bg-purple-950/60 border border-purple-700/60 text-xs font-mono shadow-md">
+                        <div class="text-[11px] font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5 border-b border-purple-800/60 pb-1.5">
+                            <i class="ph-bold ph-database text-sm text-purple-400"></i> pTSAsset State & Values
+                        </div>
+                        <pre id="insp-pts-json" class="text-[11px] text-purple-200 overflow-x-auto p-2 bg-slate-900/80 rounded border border-purple-800/40 max-h-48"></pre>
+                    </div>
+
+                    <!-- Connected Hubs Section -->
                     <div id="insp-connected-hubs-section" class="hidden space-y-2">
                         <div class="text-[11px] font-semibold uppercase tracking-wider text-sky-400 flex items-center justify-between">
-                            <span class="flex items-center gap-1"><i class="ph-bold ph-git-fork"></i> Connected Event Hubs (<span id="insp-hubs-count">0</span>)</span>
+                            <span class="flex items-center gap-1"><i class="ph-bold ph-git-fork"></i> Connected Hubs (<span id="insp-hubs-count">0</span>)</span>
                         </div>
-                        <div id="insp-connected-hubs-list" class="space-y-1.5">
-                            <!-- Populated dynamically via JS -->
-                        </div>
+                        <div id="insp-connected-hubs-list" class="space-y-1.5"></div>
                     </div>
                 </div>
 
@@ -259,21 +312,60 @@
 
     </div>
 
-    <!-- Data Injection -->
+    <!-- Data Injection & Runtime Scripts -->
     <script>
         const RAW_DATA = __NETWORK_DATA_PLACEHOLDER__;
         const NETWORK_DATA = (RAW_DATA && RAW_DATA.catalog) ? RAW_DATA.catalog : (RAW_DATA || {});
+        const WORKFLOWS_DATA = (RAW_DATA && RAW_DATA.workflows) ? RAW_DATA.workflows : [];
+
         let visNetwork = null;
         let allNodes = [];
         let allEdges = [];
+
+        // Modes and Filters
+        let activeViewMode = "ALL"; // "ALL" | "JSON" | "PTS" | "WORKFLOW"
         let activeDomain = "ALL";
         let activeSearch = "";
+        let activeScopeFile = "ALL";
+        let isNeighborhoodMode = true; // Default fast 60fps mode
+        let isAggregateMode = false;
+        let showEmitters = true;
+        let showListeners = true;
+        let showParams = true;
         let hideUnconnected = false;
-        let currentInspectTarget = null;
+
+        let activeFocusNodeId = null;
+        let activeWorkflowId = null;
         let isPhysicsRunning = true;
         let toastTimeout = null;
 
         const container = document.getElementById('network-canvas');
+
+        // Extract all unique Scene & Prefab files for the Scope Dropdown
+        function initScopeFiles() {
+            const scopeSelect = document.getElementById('scope-select');
+            const filesSet = new Set();
+
+            Object.values(NETWORK_DATA).forEach(item => {
+                item.emitters.forEach(e => { if (e.file) filesSet.add(e.file); });
+                item.listeners.forEach(l => { if (l.file) filesSet.add(l.file); });
+                item.params.forEach(p => { if (p.file) filesSet.add(p.file); });
+            });
+
+            const sortedFiles = Array.from(filesSet).sort();
+            sortedFiles.forEach(file => {
+                const opt = document.createElement('option');
+                opt.value = file;
+                const base = file.split('/').pop();
+                opt.textContent = `${file.endsWith('.scene') ? '🎬' : '🧩'} ${base}`;
+                scopeSelect.appendChild(opt);
+            });
+
+            scopeSelect.addEventListener('change', (e) => {
+                activeScopeFile = e.target.value;
+                initNetwork();
+            });
+        }
 
         function sendFocusTarget(target) {
             if (!target) return;
@@ -297,22 +389,24 @@
             }
         }
 
-        function focusNodeInGraph(targetNodeId, scale = 1.4) {
+        function focusNodeInGraph(targetNodeId, scale = 1.3) {
+            activeFocusNodeId = targetNodeId;
+            if (isNeighborhoodMode) {
+                initNetwork();
+            }
             if (visNetwork) {
                 visNetwork.focus(targetNodeId, {
                     scale: scale,
-                    animation: { duration: 500, easingFunction: 'easeInOutQuad' }
+                    animation: { duration: 400, easingFunction: 'easeInOutQuad' }
                 });
                 visNetwork.selectNodes([targetNodeId]);
                 inspectNode(targetNodeId);
             }
         }
 
-        // Toggle / Stop Physics Animation
         function togglePhysics(forceState) {
             if (!visNetwork) return;
             isPhysicsRunning = typeof forceState === 'boolean' ? forceState : !isPhysicsRunning;
-            
             visNetwork.setOptions({ physics: { enabled: isPhysicsRunning } });
             if (!isPhysicsRunning) {
                 visNetwork.stopSimulation();
@@ -320,11 +414,7 @@
 
             const pIcon = document.getElementById('physics-icon');
             if (pIcon) {
-                if (isPhysicsRunning) {
-                    pIcon.className = 'ph-bold ph-pause text-sm text-amber-400';
-                } else {
-                    pIcon.className = 'ph-bold ph-play text-sm text-emerald-400';
-                }
+                pIcon.className = isPhysicsRunning ? 'ph-bold ph-pause text-sm text-amber-400' : 'ph-bold ph-play text-sm text-emerald-400';
             }
 
             showPhysicsToast(isPhysicsRunning);
@@ -333,37 +423,92 @@
         function showPhysicsToast(running) {
             const toast = document.getElementById('physics-toast');
             if (!toast) return;
-
             clearTimeout(toastTimeout);
             toast.classList.remove('hidden');
 
             if (running) {
-                toast.className = 'absolute top-5 right-5 n8n-card px-3.5 py-2 rounded-xl text-xs font-semibold z-10 shadow-2xl flex items-center gap-2 border border-emerald-500/50 text-emerald-300 bg-emerald-950/80';
-                toast.innerHTML = '<i class="ph-bold ph-play text-emerald-400"></i> Motion Active (Right-click to pause)';
-                toastTimeout = setTimeout(() => {
-                    toast.classList.add('hidden');
-                }, 1500);
+                toast.className = 'absolute top-14 right-4 n8n-card px-3 py-1.5 rounded-xl text-xs font-semibold z-10 shadow-2xl flex items-center gap-2 border border-emerald-500/50 text-emerald-300 bg-emerald-950/80';
+                toast.innerHTML = '<i class="ph-bold ph-play text-emerald-400"></i> Simulation Active';
+                toastTimeout = setTimeout(() => { toast.classList.add('hidden'); }, 1500);
             } else {
-                toast.className = 'absolute top-5 right-5 n8n-card px-3.5 py-2 rounded-xl text-xs font-semibold z-10 shadow-2xl flex items-center gap-2 border border-amber-500/50 text-amber-300 bg-amber-950/80';
-                toast.innerHTML = '<i class="ph-bold ph-pause text-amber-400"></i> Motion Paused / Frozen (Right-click to resume)';
+                toast.className = 'absolute top-14 right-4 n8n-card px-3 py-1.5 rounded-xl text-xs font-semibold z-10 shadow-2xl flex items-center gap-2 border border-amber-500/50 text-amber-300 bg-amber-950/80';
+                toast.innerHTML = '<i class="ph-bold ph-pause text-amber-400"></i> Physics Frozen (Pan/Zoom 60fps)';
             }
         }
 
-        // Populate Left Sidebar Event List Catalog
-        function populateEventList() {
+        // Left Sidebar: Populate Catalog or Workflow list
+        function populateSidebarList() {
             const listEl = document.getElementById('event-list');
             const countEl = document.getElementById('event-count');
+            const titleEl = document.getElementById('sidebar-title');
+            const iconEl = document.getElementById('sidebar-icon');
             if (!listEl) return;
             listEl.innerHTML = "";
 
+            if (activeViewMode === "WORKFLOW") {
+                titleEl.textContent = "Workflows";
+                iconEl.className = "ph-bold ph-git-branch text-indigo-400 text-base";
+                
+                const workflows = WORKFLOWS_DATA.filter(wf => {
+                    if (activeDomain !== "ALL" && wf.domain !== activeDomain) return false;
+                    if (activeSearch) {
+                        const str = (wf.title + " " + wf.entryPoint + " " + wf.domain).toLowerCase();
+                        if (!str.includes(activeSearch)) return false;
+                    }
+                    return true;
+                });
+
+                if (countEl) countEl.textContent = workflows.length;
+
+                workflows.forEach(wf => {
+                    const row = document.createElement('div');
+                    row.className = `group p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-2 text-xs shadow-sm ${activeWorkflowId === wf.id ? 'bg-indigo-950/90 border-indigo-500 text-white' : 'bg-slate-800/60 hover:bg-slate-700/80 border-slate-700/50 hover:border-indigo-500/60 text-slate-200'}`;
+                    row.innerHTML = `
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            <span class="text-sm shrink-0">${wf.domainIcon || '🔀'}</span>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-medium truncate text-[11px] font-mono group-hover:text-white">${wf.title}</div>
+                                <div class="text-[10px] text-slate-400 truncate">${wf.domain} · ${wf.steps.length} stages</div>
+                            </div>
+                        </div>
+                        <span class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800 text-[10px] font-mono shrink-0">${wf.steps.length}</span>
+                    `;
+                    row.addEventListener('click', () => {
+                        activeWorkflowId = wf.id;
+                        populateSidebarList();
+                        renderWorkflowGraph(wf);
+                    });
+                    listEl.appendChild(row);
+                });
+
+                if (workflows.length > 0 && !activeWorkflowId) {
+                    activeWorkflowId = workflows[0].id;
+                    renderWorkflowGraph(workflows[0]);
+                }
+                return;
+            }
+
+            // Normal Catalog View (JsonAsset / pTSAsset / All)
+            titleEl.textContent = activeViewMode === "PTS" ? "pTSAsset" : (activeViewMode === "JSON" ? "Events" : "Catalog");
+            iconEl.className = activeViewMode === "PTS" ? "ph-bold ph-diamond text-purple-400 text-base" : "ph ph-tree-structure text-sky-400 text-base";
+
             const items = Object.values(NETWORK_DATA).filter(item => {
+                if (activeViewMode === "JSON" && item.assetType === "pts") return false;
+                if (activeViewMode === "PTS" && item.assetType !== "pts") return false;
+
                 if (activeDomain !== "ALL" && item.domain !== activeDomain) return false;
                 if (hideUnconnected) {
                     const total = item.emitters.length + item.listeners.length + item.params.length;
                     if (total === 0) return false;
                 }
+                if (activeScopeFile !== "ALL") {
+                    const hasFile = item.emitters.some(e => e.file === activeScopeFile) ||
+                                    item.listeners.some(l => l.file === activeScopeFile) ||
+                                    item.params.some(p => p.file === activeScopeFile);
+                    if (!hasFile) return false;
+                }
                 if (activeSearch) {
-                    const str = (item.name + " " + item.path + " " + JSON.stringify(item.emitters) + " " + JSON.stringify(item.listeners)).toLowerCase();
+                    const str = (item.name + " " + item.path + " " + (item.ptsType || '') + " " + JSON.stringify(item.emitters) + " " + JSON.stringify(item.listeners)).toLowerCase();
                     if (!str.includes(activeSearch)) return false;
                 }
                 return true;
@@ -373,32 +518,38 @@
 
             items.sort((a, b) => a.name.localeCompare(b.name)).forEach(item => {
                 const row = document.createElement('div');
+                const isPts = item.assetType === 'pts';
                 const isParam = item.path.includes("params") || item.path.includes("id");
+                
                 row.className = 'group p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/50 hover:border-sky-500/60 cursor-pointer transition-all flex items-center justify-between gap-2 text-xs shadow-sm';
                 
+                let icon = isPts ? (item.domainIcon || '💎') : (isParam ? '📦' : (item.domainIcon || '⚡'));
+                let badgeClass = isPts ? 'bg-purple-950/80 text-purple-300 border-purple-800/60' : 'bg-sky-950/80 text-sky-300 border-sky-800/60';
+
                 row.innerHTML = `
                     <div class="flex items-center gap-2 min-w-0 flex-1">
-                        <span class="text-sm shrink-0">${isParam ? '📦' : (item.domainIcon || '⚡')}</span>
+                        <span class="text-sm shrink-0">${icon}</span>
                         <div class="min-w-0 flex-1">
                             <div class="font-medium text-slate-200 group-hover:text-white truncate text-[11px] font-mono">${item.name}</div>
-                            <div class="text-[10px] text-slate-400 truncate">${item.domain || 'General'}</div>
+                            <div class="text-[10px] text-slate-400 truncate">${item.domain || (isPts ? item.ptsType : 'General')}</div>
                         </div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0 text-[10px] font-mono">
                         ${item.emitters.length > 0 ? `<span class="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 font-semibold">${item.emitters.length}e</span>` : ''}
-                        ${item.listeners.length > 0 ? `<span class="px-1.5 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/60 font-semibold">${item.listeners.length}l</span>` : ''}
+                        ${item.listeners.length > 0 ? `<span class="px-1.5 py-0.5 rounded bg-fuchsia-950/80 text-fuchsia-300 border border-fuchsia-800/60 font-semibold">${item.listeners.length}l</span>` : ''}
+                        ${item.params.length > 0 ? `<span class="px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/60 font-semibold">${item.params.length}p</span>` : ''}
                     </div>
                 `;
 
                 row.addEventListener('click', () => {
-                    focusNodeInGraph("evt_" + item.uuid, 1.6);
+                    focusNodeInGraph("evt_" + item.uuid, 1.4);
                 });
 
                 listEl.appendChild(row);
             });
         }
 
-        // Render Dynamic Domain Filters at Bottom Center Dock
+        // Render Bottom Dock Domain Filters
         function renderDynamicDomainFilters() {
             const filterContainer = document.getElementById('domain-filters-container');
             filterContainer.innerHTML = "";
@@ -407,27 +558,38 @@
             const domainIcons = {};
             let totalCount = 0;
 
-            Object.values(NETWORK_DATA).forEach(item => {
-                if (hideUnconnected) {
-                    const totalConnections = item.emitters.length + item.listeners.length + item.params.length;
-                    if (totalConnections === 0) return;
-                }
-                const d = item.domain || 'Other';
-                domainCounts[d] = (domainCounts[d] || 0) + 1;
-                if (item.domainIcon) domainIcons[d] = item.domainIcon;
-                totalCount++;
-            });
+            if (activeViewMode === "WORKFLOW") {
+                WORKFLOWS_DATA.forEach(wf => {
+                    const d = wf.domain || 'Core System';
+                    domainCounts[d] = (domainCounts[d] || 0) + 1;
+                    if (wf.domainIcon) domainIcons[d] = wf.domainIcon;
+                    totalCount++;
+                });
+            } else {
+                Object.values(NETWORK_DATA).forEach(item => {
+                    if (activeViewMode === "JSON" && item.assetType === "pts") return;
+                    if (activeViewMode === "PTS" && item.assetType !== "pts") return;
+                    if (hideUnconnected) {
+                        const total = item.emitters.length + item.listeners.length + item.params.length;
+                        if (total === 0) return;
+                    }
+                    const d = item.domain || 'Other';
+                    domainCounts[d] = (domainCounts[d] || 0) + 1;
+                    if (item.domainIcon) domainIcons[d] = item.domainIcon;
+                    totalCount++;
+                });
+            }
 
             // All Button
             const allBtn = document.createElement('button');
             const isAllActive = activeDomain === 'ALL';
             allBtn.className = `filter-btn px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${isAllActive ? 'text-sky-400 bg-slate-700 font-bold shadow-md' : 'text-slate-400 hover:text-white'}`;
-            allBtn.setAttribute('data-domain', 'ALL');
             allBtn.textContent = `All (${totalCount})`;
             allBtn.addEventListener('click', () => {
                 activeDomain = 'ALL';
                 renderDynamicDomainFilters();
-                initNetwork();
+                populateSidebarList();
+                if (activeViewMode !== "WORKFLOW") initNetwork();
             });
             filterContainer.appendChild(allBtn);
 
@@ -438,77 +600,95 @@
                 const isAct = activeDomain === domain;
                 const btn = document.createElement('button');
                 btn.className = `filter-btn px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${isAct ? 'text-sky-400 bg-slate-700 font-bold shadow-md' : 'text-slate-400 hover:text-white'}`;
-                btn.setAttribute('data-domain', domain);
                 btn.innerHTML = `${icon} ${domain} <span class="opacity-60 text-[10px]">(${count})</span>`;
                 btn.addEventListener('click', () => {
                     activeDomain = domain;
                     renderDynamicDomainFilters();
-                    initNetwork();
+                    populateSidebarList();
+                    if (activeViewMode !== "WORKFLOW") initNetwork();
                 });
                 filterContainer.appendChild(btn);
             });
         }
 
-        // Build Graph Nodes & Edges from Dataset
+        // Build Graph Data (JsonAsset & pTSAsset with Performance Optimizations)
         function buildGraphData() {
             const nodes = [];
             const edges = [];
             const edgeSet = new Set();
             const nodeMap = new Map();
-            const sceneNodeToComponentIds = new Map();
 
             const getShortNode = (nodePath) => {
                 if (!nodePath) return 'Node';
                 const parts = nodePath.split('/');
-                if (parts.length > 2) {
-                    return parts.slice(-2).join('/');
-                }
-                return nodePath;
+                return parts.length > 2 ? parts.slice(-2).join('/') : nodePath;
             };
 
-            const recordSameNode = (file, node, graphNodeId) => {
-                const key = `${file}::${node}`;
-                if (!sceneNodeToComponentIds.has(key)) {
-                    sceneNodeToComponentIds.set(key, []);
-                }
-                const list = sceneNodeToComponentIds.get(key);
-                if (!list.includes(graphNodeId)) {
-                    list.push(graphNodeId);
-                }
-            };
-
-            Object.entries(NETWORK_DATA).forEach(([uuid, item]) => {
-                // Domain filter
-                if (activeDomain !== "ALL" && item.domain !== activeDomain) {
-                    return;
-                }
-
-                // Hide unconnected / orphan events toggle
+            // Collect candidate catalog items matching filters
+            const candidateItems = Object.entries(NETWORK_DATA).filter(([uuid, item]) => {
+                if (activeViewMode === "JSON" && item.assetType === "pts") return false;
+                if (activeViewMode === "PTS" && item.assetType !== "pts") return false;
+                if (activeDomain !== "ALL" && item.domain !== activeDomain) return false;
                 if (hideUnconnected) {
                     const totalConnections = item.emitters.length + item.listeners.length + item.params.length;
-                    if (totalConnections === 0) {
-                        return;
-                    }
+                    if (totalConnections === 0) return false;
                 }
-
-                // Search filter
-                const searchTarget = (item.name + " " + item.path + " " + JSON.stringify(item.emitters) + " " + JSON.stringify(item.listeners)).toLowerCase();
-                if (activeSearch && !searchTarget.includes(activeSearch)) {
-                    return;
+                if (activeScopeFile !== "ALL") {
+                    const hasFile = item.emitters.some(e => e.file === activeScopeFile) ||
+                                    item.listeners.some(l => l.file === activeScopeFile) ||
+                                    item.params.some(p => p.file === activeScopeFile);
+                    if (!hasFile) return false;
                 }
+                if (activeSearch) {
+                    const searchTarget = (item.name + " " + item.path + " " + (item.ptsType || '') + " " + JSON.stringify(item.emitters) + " " + JSON.stringify(item.listeners)).toLowerCase();
+                    if (!searchTarget.includes(activeSearch)) return false;
+                }
+                return true;
+            });
 
+            // If Neighborhood mode is active, scope to activeFocusNodeId or the top candidates
+            let targetHubUuids = new Set();
+            if (isNeighborhoodMode && candidateItems.length > 0) {
+                if (activeFocusNodeId && activeFocusNodeId.startsWith('evt_')) {
+                    const focalUuid = activeFocusNodeId.replace('evt_', '');
+                    targetHubUuids.add(focalUuid);
+                } else if (activeFocusNodeId && (activeFocusNodeId.startsWith('emit_') || activeFocusNodeId.startsWith('list_') || activeFocusNodeId.startsWith('param_'))) {
+                    // Focal node is a component, find connected hubs
+                    Object.entries(NETWORK_DATA).forEach(([uuid, item]) => {
+                        const inEmitters = item.emitters.some(e => activeFocusNodeId.includes(e.className));
+                        const inListeners = item.listeners.some(l => activeFocusNodeId.includes(l.className));
+                        if (inEmitters || inListeners) targetHubUuids.add(uuid);
+                    });
+                } else {
+                    // Pick first 8 hubs for quick, instant render
+                    candidateItems.slice(0, 8).forEach(([uuid]) => targetHubUuids.add(uuid));
+                }
+            } else {
+                candidateItems.forEach(([uuid]) => targetHubUuids.add(uuid));
+            }
+
+            candidateItems.forEach(([uuid, item]) => {
+                if (!targetHubUuids.has(uuid)) return;
+
+                const isPts = item.assetType === 'pts';
                 const isParam = item.path.includes("params") || item.path.includes("id");
 
-                // 1. Hub Node (JsonAsset) with Radiant Glow & Visual Distinction
+                // 1. Hub Node (JsonAsset or pTSAsset)
                 const eventNodeId = "evt_" + uuid;
                 if (!nodeMap.has(eventNodeId)) {
+                    const labelPrefix = isPts ? (item.domainIcon || '💎') : (isParam ? '📦' : '⚡');
                     const hubNode = {
                         id: eventNodeId,
-                        label: isParam ? `📦  ${item.name}` : `⚡  ${item.name}`,
-                        shape: 'box',
+                        label: `${labelPrefix}  ${item.name}`,
+                        shape: isPts ? 'diamond' : 'box',
                         margin: { top: 10, bottom: 10, left: 14, right: 14 },
-                        font: { color: '#ffffff', size: 13, face: 'monospace', bold: true },
-                        color: isParam ? {
+                        font: { color: '#ffffff', size: 12.5, face: 'monospace', bold: true },
+                        color: isPts ? {
+                            background: '#4c1d95',
+                            border: '#c084fc',
+                            highlight: { background: '#6b21a8', border: '#f3e8ff' },
+                            hover: { background: '#6b21a8', border: '#f3e8ff' }
+                        } : (isParam ? {
                             background: '#451a03',
                             border: '#fbbf24',
                             highlight: { background: '#78350f', border: '#fef08a' },
@@ -518,18 +698,17 @@
                             border: '#38bdf8',
                             highlight: { background: '#0369a1', border: '#e0f2fe' },
                             hover: { background: '#0369a1', border: '#e0f2fe' }
-                        },
+                        }),
                         borderWidth: 2.5,
-                        borderWidthSelected: 3.5,
                         shadow: { 
                             enabled: true, 
-                            color: isParam ? 'rgba(245, 158, 11, 0.65)' : 'rgba(56, 189, 248, 0.65)', 
-                            size: 16, 
+                            color: isPts ? 'rgba(192, 132, 252, 0.65)' : (isParam ? 'rgba(245, 158, 11, 0.65)' : 'rgba(56, 189, 248, 0.65)'), 
+                            size: 14, 
                             x: 0, 
                             y: 0 
                         },
                         data: {
-                            type: isParam ? 'PARAM' : 'EVENT',
+                            type: isPts ? 'PTS_ASSET' : (isParam ? 'PARAM' : 'EVENT'),
                             uuid: uuid,
                             raw: item
                         }
@@ -538,199 +717,169 @@
                     nodes.push(hubNode);
                 }
 
+                // 2. Emitters
+                if (showEmitters) {
+                    item.emitters.forEach((emit, idx) => {
+                        if (activeScopeFile !== "ALL" && emit.file !== activeScopeFile) return;
 
+                        const shortNode = getShortNode(emit.node);
+                        const emitNodeId = isAggregateMode 
+                            ? `comp_${emit.file}_${emit.node}_${emit.className}`
+                            : `emit_${emit.file}_${emit.node}_${emit.className}_${emit.functionName || idx}`;
 
-                // 2. Emitter Nodes & Inbound Edges (Track all connected event hubs)
-                item.emitters.forEach((emit, idx) => {
-                    const shortNode = getShortNode(emit.node);
-                    const emitKey = (emit.property || '') + "_" + (emit.functionName || emit.trigger || idx);
-                    const emitNodeId = "emit_" + emit.file + "_" + emit.node + "_" + emit.className + "_" + (emit.compId !== undefined ? emit.compId + "_" : "") + emitKey;
-                    recordSameNode(emit.file, emit.node, emitNodeId);
-
-                    if (!nodeMap.has(emitNodeId)) {
-                        const emitNode = {
-                            id: emitNodeId,
-                            label: `${shortNode} · ${emit.className}\n⚡ ${emit.functionName || emit.trigger || 'emit()'}`,
-                            shape: 'box',
-                            margin: 7,
-                            font: { color: '#f0fdf4', size: 10.5, face: 'sans-serif', align: 'center' },
-                            color: {
-                                background: '#14532d',
-                                border: '#22c55e',
-                                highlight: { background: '#15803d', border: '#4ade80' },
-                                hover: { background: '#15803d', border: '#4ade80' }
-                            },
-                            borderWidth: 1.5,
-                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 5, x: 0, y: 2 },
-                            data: {
-                                type: 'EMITTER',
-                                emit: emit,
-                                targetEventUuids: [uuid]
-                            }
-                        };
-                        nodeMap.set(emitNodeId, emitNode);
-                        nodes.push(emitNode);
-                    } else {
-                        const existing = nodeMap.get(emitNodeId);
-                        if (existing && existing.data && existing.data.targetEventUuids) {
-                            if (!existing.data.targetEventUuids.includes(uuid)) {
-                                existing.data.targetEventUuids.push(uuid);
-                            }
+                        if (!nodeMap.has(emitNodeId)) {
+                            const emitNode = {
+                                id: emitNodeId,
+                                label: isAggregateMode 
+                                    ? `🏢 ${shortNode}\n${emit.className}`
+                                    : `${shortNode} · ${emit.className}\n⚡ ${emit.functionName || 'emit()'}`,
+                                shape: 'box',
+                                margin: 7,
+                                font: { color: '#f0fdf4', size: 10, face: 'sans-serif', align: 'center' },
+                                color: {
+                                    background: '#14532d',
+                                    border: '#22c55e',
+                                    highlight: { background: '#15803d', border: '#4ade80' },
+                                    hover: { background: '#15803d', border: '#4ade80' }
+                                },
+                                borderWidth: 1.5,
+                                data: {
+                                    type: 'EMITTER',
+                                    emit: emit,
+                                    targetEventUuids: [uuid]
+                                }
+                            };
+                            nodeMap.set(emitNodeId, emitNode);
+                            nodes.push(emitNode);
                         }
-                    }
 
-                    const edgeId = emitNodeId + "->" + eventNodeId;
-                    if (!edgeSet.has(edgeId)) {
-                        edgeSet.add(edgeId);
-                        edges.push({
-                            id: edgeId,
-                            from: emitNodeId,
-                            to: eventNodeId,
-                            arrows: { to: { enabled: true, scaleFactor: 0.8 } },
-                            color: { color: '#22c55e', highlight: '#4ade80', hover: '#4ade80' },
-                            width: 1.5,
-                            smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.4 }
-                        });
-                    }
-                });
-
-                // 3. Listener Nodes & Outbound Edges (Track all connected event hubs)
-                item.listeners.forEach((list, idx) => {
-                    const shortNode = getShortNode(list.node);
-                    const rawMethod = list.boundMethod || list.functionName || list.property || 'handle';
-                    const displayMethod = (rawMethod === '_actCloseApi' || rawMethod === '_actClose') ? 'close' : rawMethod.replace(/\(\)$/, '');
-                    const listKey = (list.property || '') + "_" + rawMethod;
-                    const listNodeId = "list_" + list.file + "_" + list.node + "_" + list.className + "_" + (list.compId !== undefined ? list.compId + "_" : "") + listKey;
-                    recordSameNode(list.file, list.node, listNodeId);
-
-                    if (!nodeMap.has(listNodeId)) {
-                        const listNode = {
-                            id: listNodeId,
-                            label: `${shortNode} · ${list.className}\n🎧 ${displayMethod}()`,
-                            shape: 'box',
-                            margin: 7,
-                            font: { color: '#fdf4ff', size: 10.5, face: 'sans-serif', align: 'center' },
-                            color: {
-                                background: '#581c87',
-                                border: '#c084fc',
-                                highlight: { background: '#6b21a8', border: '#e879f9' },
-                                hover: { background: '#6b21a8', border: '#e879f9' }
-                            },
-                            borderWidth: 1.5,
-                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 5, x: 0, y: 2 },
-                            data: {
-                                type: 'LISTENER',
-                                list: list,
-                                targetEventUuids: [uuid]
-                            }
-                        };
-                        nodeMap.set(listNodeId, listNode);
-                        nodes.push(listNode);
-                    } else {
-                        const existing = nodeMap.get(listNodeId);
-                        if (existing && existing.data && existing.data.targetEventUuids) {
-                            if (!existing.data.targetEventUuids.includes(uuid)) {
-                                existing.data.targetEventUuids.push(uuid);
-                            }
+                        const edgeId = `${emitNodeId}->${eventNodeId}`;
+                        if (!edgeSet.has(edgeId)) {
+                            edgeSet.add(edgeId);
+                            edges.push({
+                                id: edgeId,
+                                from: emitNodeId,
+                                to: eventNodeId,
+                                arrows: { to: { enabled: true, scaleFactor: 0.75 } },
+                                color: { color: '#22c55e', highlight: '#4ade80' },
+                                width: 1.5,
+                                smooth: { type: 'continuous', roundness: 0.2 }
+                            });
                         }
-                    }
+                    });
+                }
 
-                    const edgeId = eventNodeId + "->" + listNodeId;
-                    if (!edgeSet.has(edgeId)) {
-                        edgeSet.add(edgeId);
-                        edges.push({
-                            id: edgeId,
-                            from: eventNodeId,
-                            to: listNodeId,
-                            arrows: { to: { enabled: true, scaleFactor: 0.8 } },
-                            color: { color: '#c084fc', highlight: '#e879f9', hover: '#e879f9' },
-                            width: 1.5,
-                            smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.4 }
-                        });
-                    }
-                });
+                // 3. Listeners
+                if (showListeners) {
+                    item.listeners.forEach((list, idx) => {
+                        if (activeScopeFile !== "ALL" && list.file !== activeScopeFile) return;
 
-                // 4. Param Holder Nodes & Dashed Edges
-                item.params.forEach((param, idx) => {
-                    const shortNode = getShortNode(param.node);
-                    const paramNodeId = "param_" + param.file + "_" + param.node + "_" + param.className + "_" + (param.compId !== undefined ? param.compId + "_" : "") + param.property;
-                    recordSameNode(param.file, param.node, paramNodeId);
+                        const shortNode = getShortNode(list.node);
+                        const listNodeId = isAggregateMode
+                            ? `comp_${list.file}_${list.node}_${list.className}`
+                            : `list_${list.file}_${list.node}_${list.className}_${list.boundMethod || idx}`;
 
-                    if (!nodeMap.has(paramNodeId)) {
-                        const paramNode = {
-                            id: paramNodeId,
-                            label: `${shortNode} · ${param.className}\n📦 ${param.property}`,
-                            shape: 'box',
-                            margin: 7,
-                            font: { color: '#fffbeb', size: 10.5, face: 'sans-serif', align: 'center' },
-                            color: {
-                                background: '#78350f',
-                                border: '#f59e0b',
-                                highlight: { background: '#92400e', border: '#fbbf24' },
-                                hover: { background: '#92400e', border: '#fbbf24' }
-                            },
-                            borderWidth: 1.5,
-                            shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 5, x: 0, y: 2 },
-                            data: {
-                                type: 'PARAM_HOLDER',
-                                param: param,
-                                targetEventUuids: [uuid]
-                            }
-                        };
-                        nodeMap.set(paramNodeId, paramNode);
-                        nodes.push(paramNode);
-                    } else {
-                        const existing = nodeMap.get(paramNodeId);
-                        if (existing && existing.data && existing.data.targetEventUuids) {
-                            if (!existing.data.targetEventUuids.includes(uuid)) {
-                                existing.data.targetEventUuids.push(uuid);
-                            }
+                        if (!nodeMap.has(listNodeId)) {
+                            const listNode = {
+                                id: listNodeId,
+                                label: isAggregateMode 
+                                    ? `🏢 ${shortNode}\n${list.className}`
+                                    : `${shortNode} · ${list.className}\n🎧 ${list.boundMethod || 'handle'}()`,
+                                shape: 'box',
+                                margin: 7,
+                                font: { color: '#fdf4ff', size: 10, face: 'sans-serif', align: 'center' },
+                                color: {
+                                    background: '#581c87',
+                                    border: '#c084fc',
+                                    highlight: { background: '#6b21a8', border: '#e879f9' },
+                                    hover: { background: '#6b21a8', border: '#e879f9' }
+                                },
+                                borderWidth: 1.5,
+                                data: {
+                                    type: 'LISTENER',
+                                    list: list,
+                                    targetEventUuids: [uuid]
+                                }
+                            };
+                            nodeMap.set(listNodeId, listNode);
+                            nodes.push(listNode);
                         }
-                    }
 
-                    const edgeId = eventNodeId + "-.-" + paramNodeId;
-                    if (!edgeSet.has(edgeId)) {
-                        edgeSet.add(edgeId);
-                        edges.push({
-                            id: edgeId,
-                            from: eventNodeId,
-                            to: paramNodeId,
-                            dashes: true,
-                            color: { color: '#f59e0b', highlight: '#fbbf24', hover: '#fbbf24' },
-                            width: 1.5,
-                            smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.4 }
-                        });
-                    }
-                });
-            });
-
-            // 5. Connect components residing on the same Scene Node with subtle gray dashed lines (- - -)
-            sceneNodeToComponentIds.forEach((compIds, sceneKey) => {
-                if (compIds.length > 1) {
-                    for (let i = 0; i < compIds.length; i++) {
-                        for (let j = i + 1; j < compIds.length; j++) {
-                            const sameNodeEdgeId = `same_node_${compIds[i]}_${compIds[j]}`;
-                            if (!edgeSet.has(sameNodeEdgeId)) {
-                                edgeSet.add(sameNodeEdgeId);
-                                edges.push({
-                                    id: sameNodeEdgeId,
-                                    from: compIds[i],
-                                    to: compIds[j],
-                                    dashes: [4, 4],
-                                    color: { color: 'rgba(148, 163, 184, 0.45)', highlight: 'rgba(203, 213, 225, 0.8)', hover: 'rgba(203, 213, 225, 0.8)' },
-                                    width: 1.2,
-                                    arrows: { to: { enabled: false } },
-                                    smooth: { type: 'continuous', roundness: 0.2 },
-                                    physics: false
-                                });
-                            }
+                        const edgeId = `${eventNodeId}->${listNodeId}`;
+                        if (!edgeSet.has(edgeId)) {
+                            edgeSet.add(edgeId);
+                            edges.push({
+                                id: edgeId,
+                                from: eventNodeId,
+                                to: listNodeId,
+                                arrows: { to: { enabled: true, scaleFactor: 0.75 } },
+                                color: { color: '#c084fc', highlight: '#e879f9' },
+                                width: 1.5,
+                                smooth: { type: 'continuous', roundness: 0.2 }
+                            });
                         }
-                    }
+                    });
+                }
+
+                // 4. Params
+                if (showParams) {
+                    item.params.forEach((param, idx) => {
+                        if (activeScopeFile !== "ALL" && param.file !== activeScopeFile) return;
+
+                        const shortNode = getShortNode(param.node);
+                        const paramNodeId = isAggregateMode
+                            ? `comp_${param.file}_${param.node}_${param.className}`
+                            : `param_${param.file}_${param.node}_${param.className}_${param.property}`;
+
+                        if (!nodeMap.has(paramNodeId)) {
+                            const paramNode = {
+                                id: paramNodeId,
+                                label: isAggregateMode 
+                                    ? `🏢 ${shortNode}\n${param.className}`
+                                    : `${shortNode} · ${param.className}\n📦 ${param.property}`,
+                                shape: 'box',
+                                margin: 7,
+                                font: { color: '#fffbeb', size: 10, face: 'sans-serif', align: 'center' },
+                                color: {
+                                    background: '#78350f',
+                                    border: '#f59e0b',
+                                    highlight: { background: '#92400e', border: '#fbbf24' },
+                                    hover: { background: '#92400e', border: '#fbbf24' }
+                                },
+                                borderWidth: 1.5,
+                                data: {
+                                    type: 'PARAM_HOLDER',
+                                    param: param,
+                                    targetEventUuids: [uuid]
+                                }
+                            };
+                            nodeMap.set(paramNodeId, paramNode);
+                            nodes.push(paramNode);
+                        }
+
+                        const edgeId = `${eventNodeId}-.-${paramNodeId}`;
+                        if (!edgeSet.has(edgeId)) {
+                            edgeSet.add(edgeId);
+                            edges.push({
+                                id: edgeId,
+                                from: eventNodeId,
+                                to: paramNodeId,
+                                dashes: true,
+                                color: { color: '#f59e0b', highlight: '#fbbf24' },
+                                width: 1.5,
+                                smooth: { type: 'continuous', roundness: 0.2 }
+                            });
+                        }
+                    });
                 }
             });
 
             allNodes = nodes;
             allEdges = edges;
+
+            // Update stats badge
+            document.getElementById('stats-rendered-nodes').textContent = nodes.length;
+            document.getElementById('stats-total-catalog').textContent = Object.keys(NETWORK_DATA).length;
 
             return {
                 nodes: new vis.DataSet(nodes),
@@ -738,109 +887,202 @@
             };
         }
 
-        // Initialize Vis.js with Calmer Smooth Physics
-        function initNetwork() {
-            const graphData = buildGraphData();
+        // Render Workflow Execution Pipeline Graph (GitNexus DAG)
+        function renderWorkflowGraph(workflow) {
+            if (!workflow || !workflow.steps) return;
+
+            const nodes = [];
+            const edges = [];
+
+            workflow.steps.forEach(step => {
+                let bg = '#1e293b';
+                let border = '#64748b';
+                let icon = '⚙️';
+
+                if (step.type === 'entry') {
+                    bg = '#064e3b';
+                    border = '#10b981';
+                    icon = '🖱️';
+                } else if (step.type === 'event') {
+                    bg = '#082f49';
+                    border = '#38bdf8';
+                    icon = '⚡';
+                } else if (step.type === 'pts_asset') {
+                    bg = '#4c1d95';
+                    border = '#c084fc';
+                    icon = '💎';
+                }
+
+                nodes.push({
+                    id: step.id,
+                    label: `${icon} Step ${step.stepIndex}\n${step.title}\n${step.subtitle}`,
+                    shape: 'box',
+                    margin: 10,
+                    level: step.stepIndex,
+                    font: { color: '#ffffff', size: 11, face: 'sans-serif', align: 'center' },
+                    color: {
+                        background: bg,
+                        border: border,
+                        highlight: { background: bg, border: '#ffffff' }
+                    },
+                    borderWidth: 2,
+                    data: {
+                        type: 'WORKFLOW_STEP',
+                        step: step,
+                        workflow: workflow
+                    }
+                });
+
+                if (step.nextStepIds) {
+                    step.nextStepIds.forEach(nextId => {
+                        edges.push({
+                            from: step.id,
+                            to: nextId,
+                            arrows: { to: { enabled: true, scaleFactor: 0.8 } },
+                            color: { color: '#38bdf8', highlight: '#e0f2fe' },
+                            width: 2
+                        });
+                    });
+                }
+            });
+
+            const data = {
+                nodes: new vis.DataSet(nodes),
+                edges: new vis.DataSet(edges)
+            };
 
             const options = {
-                nodes: {
-                    borderWidthSelected: 2,
-                    chosen: {
-                        node: function(values, id, selected, hovering) {
-                            if (selected) {
-                                values.borderWidth = 3;
-                            }
-                        }
+                layout: {
+                    hierarchical: {
+                        direction: 'LR',
+                        sortMethod: 'directed',
+                        levelSeparation: 180,
+                        nodeSpacing: 100
                     }
                 },
-                physics: {
-                    enabled: isPhysicsRunning,
-                    solver: 'forceAtlas2Based',
-                    forceAtlas2Based: {
-                        gravitationalConstant: -55,
-                        centralGravity: 0.006,
-                        springLength: 130,
-                        springConstant: 0.06,
-                        damping: 0.92,
-                        avoidOverlap: 0.5
-                    },
-                    stabilization: {
-                        enabled: true,
-                        iterations: 180,
-                        updateInterval: 25
-                    }
-                },
+                physics: { enabled: false },
                 interaction: {
                     hover: true,
-                    tooltipDelay: 100,
-                    hideEdgesOnDrag: false,
                     zoomView: true,
                     dragView: true
                 }
             };
 
-            visNetwork = new vis.Network(container, graphData, options);
+            if (visNetwork) {
+                visNetwork.destroy();
+            }
 
-            // Single click inspect
+            visNetwork = new vis.Network(container, data, options);
+
             visNetwork.on("click", function(params) {
                 if (params.nodes.length > 0) {
-                    const selectedNodeId = params.nodes[0];
-                    inspectNode(selectedNodeId);
+                    inspectWorkflowStep(params.nodes[0], workflow);
+                }
+            });
+
+            document.getElementById('stats-rendered-nodes').textContent = nodes.length;
+        }
+
+        // Initialize Vis.js Network with Optimized Barnes-Hut & Auto-Freeze
+        function initNetwork() {
+            if (activeViewMode === "WORKFLOW") {
+                const wf = WORKFLOWS_DATA.find(w => w.id === activeWorkflowId) || WORKFLOWS_DATA[0];
+                if (wf) renderWorkflowGraph(wf);
+                return;
+            }
+
+            const graphData = buildGraphData();
+
+            const options = {
+                nodes: {
+                    borderWidthSelected: 2.5
+                },
+                physics: {
+                    enabled: isPhysicsRunning,
+                    solver: 'barnesHut',
+                    barnesHut: {
+                        gravitationalConstant: -2800,
+                        centralGravity: 0.25,
+                        springLength: 90,
+                        springConstant: 0.04,
+                        damping: 0.85,
+                        avoidOverlap: 0.6
+                    },
+                    stabilization: {
+                        enabled: true,
+                        iterations: 60,
+                        updateInterval: 10,
+                        fit: true
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                    hideEdgesOnDrag: true, // Improves drag FPS
+                    zoomView: true,
+                    dragView: true
+                }
+            };
+
+            if (visNetwork) {
+                visNetwork.destroy();
+            }
+
+            visNetwork = new vis.Network(container, graphData, options);
+
+            // Auto-freeze simulation once stabilized to guarantee 60 FPS
+            visNetwork.once('stabilizationIterationsDone', function() {
+                if (visNetwork) {
+                    visNetwork.setOptions({ physics: { enabled: false } });
+                    isPhysicsRunning = false;
+                    const pIcon = document.getElementById('physics-icon');
+                    if (pIcon) pIcon.className = 'ph-bold ph-play text-sm text-emerald-400';
+                }
+            });
+
+            visNetwork.on("click", function(params) {
+                if (params.nodes.length > 0) {
+                    inspectNode(params.nodes[0]);
                 } else {
                     clearInspector();
                 }
             });
 
-            // Double click zoom in to node
             visNetwork.on("doubleClick", function(params) {
                 if (params.nodes.length > 0) {
-                    const targetNodeId = params.nodes[0];
-                    focusNodeInGraph(targetNodeId, 1.8);
+                    focusNodeInGraph(params.nodes[0], 1.6);
                 }
             });
 
-            // Right click freeze/stop animation
             visNetwork.on("oncontext", function(params) {
                 params.event.preventDefault();
                 togglePhysics();
             });
         }
 
-        // Prevent browser native context menu on canvas
-        container.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-        });
-
-        // Context-Aware Inspector Supporting Multiple Connected Hubs
+        // Inspector View Logic
         function inspectNode(nodeId) {
             const node = allNodes.find(n => n.id === nodeId);
             if (!node) return;
 
-            const placeholder = document.getElementById('inspector-placeholder');
-            const content = document.getElementById('inspector-content');
-            placeholder.classList.add('hidden');
-            content.classList.remove('hidden');
+            document.getElementById('inspector-placeholder').classList.add('hidden');
+            document.getElementById('inspector-content').classList.remove('hidden');
 
             const inspBadge = document.getElementById('insp-badge');
             const inspDomain = document.getElementById('insp-domain');
             const inspTitle = document.getElementById('insp-title');
             const btnFocusLabel = document.getElementById('btn-focus-label');
             const inspPathRow = document.getElementById('insp-path-row');
-            const inspDetailRow = document.getElementById('insp-detail-row');
-            const inspUuidRow = document.getElementById('insp-uuid-row');
+            const ptsDataBox = document.getElementById('insp-pts-data-box');
+            const ptsJson = document.getElementById('insp-pts-json');
+            const btnTraceWf = document.getElementById('btn-trace-workflow');
 
             const connectedHubsSection = document.getElementById('insp-connected-hubs-section');
             const connectedHubsList = document.getElementById('insp-connected-hubs-list');
-            const connectedHubsCount = document.getElementById('insp-hubs-count');
-
             const emittersSection = document.getElementById('insp-emitters-section');
-            const emittersTitleText = document.getElementById('insp-emitters-title-text');
             const emittersList = document.getElementById('insp-emitters-list');
-
             const listenersSection = document.getElementById('insp-listeners-section');
-            const listenersTitleText = document.getElementById('insp-listeners-title-text');
             const listenersList = document.getElementById('insp-listeners-list');
-
             const paramsSection = document.getElementById('insp-params-section');
             const paramsList = document.getElementById('insp-params-list');
 
@@ -848,21 +1090,19 @@
             emittersList.innerHTML = "";
             listenersList.innerHTML = "";
             paramsList.innerHTML = "";
+            ptsDataBox.classList.add('hidden');
+            btnTraceWf.classList.add('hidden');
 
             const nodeType = node.data.type;
-            const targetEventUuids = node.data.targetEventUuids || (node.data.targetEventUuid ? [node.data.targetEventUuid] : (node.data.uuid ? [node.data.uuid] : []));
+            const targetEventUuids = node.data.targetEventUuids || (node.data.uuid ? [node.data.uuid] : []);
             const connectedHubs = targetEventUuids.map(u => NETWORK_DATA[u]).filter(Boolean);
 
             if (connectedHubs.length > 0) {
                 inspDomain.textContent = `${connectedHubs[0].domainIcon || ''} ${connectedHubs[0].domain || ''}`;
-            } else {
-                inspDomain.textContent = '';
             }
 
-            // ==========================================
-            // CASE 1: JSON ASSET HUB (EVENT / PARAM)
-            // ==========================================
-            if (nodeType === 'EVENT' || nodeType === 'PARAM') {
+            // Case: EVENT HUB or PTS_ASSET HUB
+            if (nodeType === 'EVENT' || nodeType === 'PARAM' || nodeType === 'PTS_ASSET') {
                 const eventItem = node.data.raw;
                 currentInspectTarget = {
                     uuid: eventItem.uuid,
@@ -872,451 +1112,147 @@
                     type: 'asset'
                 };
 
-                inspBadge.textContent = nodeType === 'PARAM' ? 'PARAM ASSET' : 'EVENT ASSET';
-                inspBadge.className = nodeType === 'PARAM' 
-                    ? 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-amber-950 text-amber-400 border border-amber-800'
-                    : 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-sky-950 text-sky-400 border border-sky-800';
+                const isPts = nodeType === 'PTS_ASSET';
+                inspBadge.textContent = isPts ? 'pTSAsset Model' : (nodeType === 'PARAM' ? 'Param Asset' : 'Event Hub');
+                inspBadge.className = isPts 
+                    ? 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-purple-950 text-purple-300 border border-purple-800'
+                    : (nodeType === 'PARAM'
+                        ? 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-amber-950 text-amber-400 border border-amber-800'
+                        : 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-sky-950 text-sky-400 border border-sky-800');
 
                 inspTitle.textContent = eventItem.name;
-                btnFocusLabel.textContent = `Focus '${eventItem.name}' in Assets`;
-                
+                btnFocusLabel.textContent = `Focus '${eventItem.name}' in Editor`;
+
                 inspPathRow.innerHTML = `
                     <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200">${eventItem.path}</span></div>
                     <div><span class="text-slate-500 font-semibold">Domain:</span> <span class="text-sky-300">${eventItem.domainIcon || ''} ${eventItem.domain}</span></div>
-                    <div class="text-[11px] text-slate-500 pt-0.5"><span class="text-slate-600 font-semibold">UUID:</span> ${eventItem.uuid}</div>
+                    ${eventItem.ptsType ? `<div><span class="text-purple-400 font-semibold">pTS Type:</span> <span class="text-purple-200 font-bold">${eventItem.ptsType}</span></div>` : ''}
+                    <div class="text-[10px] text-slate-500 pt-0.5"><span class="text-slate-600 font-semibold">UUID:</span> ${eventItem.uuid}</div>
                 `;
 
-                connectedHubsSection.classList.add('hidden');
+                // Display serialized pTSAsset value if available
+                if (isPts && eventItem.ptsValue) {
+                    ptsDataBox.classList.remove('hidden');
+                    ptsJson.textContent = JSON.stringify(eventItem.ptsValue, null, 2);
+                }
 
-                // Show all Emitters
+                // Emitters
                 emittersSection.classList.remove('hidden');
-                emittersTitleText.textContent = "Triggered By Emitters";
                 document.getElementById('insp-emitters-count').textContent = eventItem.emitters.length;
-
                 if (eventItem.emitters.length === 0) {
-                    emittersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No direct prefab emitters bound</div>';
+                    emittersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No emitters bound</div>';
                 } else {
-                    eventItem.emitters.forEach(e => {
-                        const el = renderEmitterCard(e);
-                        emittersList.appendChild(el);
-                    });
+                    eventItem.emitters.forEach(e => emittersList.appendChild(renderEmitterCard(e)));
                 }
 
-                // Show all Listeners
+                // Listeners
                 listenersSection.classList.remove('hidden');
-                listenersTitleText.textContent = "Dispatches to Listeners";
                 document.getElementById('insp-listeners-count').textContent = eventItem.listeners.length;
-
                 if (eventItem.listeners.length === 0) {
-                    listenersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No active subscribers bound</div>';
+                    listenersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No listeners bound</div>';
                 } else {
-                    eventItem.listeners.forEach(l => {
-                        const el = renderListenerCard(l);
-                        listenersList.appendChild(el);
-                    });
+                    eventItem.listeners.forEach(l => listenersList.appendChild(renderListenerCard(l)));
                 }
 
-                // Show Params
+                // Params
                 if (eventItem.params && eventItem.params.length > 0) {
                     paramsSection.classList.remove('hidden');
                     document.getElementById('insp-params-count').textContent = eventItem.params.length;
-                    eventItem.params.forEach(p => {
-                        const el = renderParamCard(p);
-                        paramsList.appendChild(el);
-                    });
+                    eventItem.params.forEach(p => paramsList.appendChild(renderParamCard(p)));
                 } else {
                     paramsSection.classList.add('hidden');
                 }
             }
-            // ==========================================
-            // CASE 2: EMITTER NODE (Supports Multiple Hubs!)
-            // ==========================================
+            // Case: EMITTER
             else if (nodeType === 'EMITTER') {
                 const emit = node.data.emit;
-                currentInspectTarget = {
-                    file: emit.file,
-                    node: emit.node,
-                    className: emit.className,
-                    scriptFile: emit.scriptFile,
-                    type: 'emitter'
-                };
-
-                inspBadge.textContent = 'EMITTER TRIGGER';
+                currentInspectTarget = { file: emit.file, node: emit.node, className: emit.className, scriptFile: emit.scriptFile, type: 'emitter' };
+                inspBadge.textContent = 'Emitter Trigger';
                 inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800';
-
-                inspTitle.textContent = `${emit.node}/${emit.className}${emit.bounceScript ? '/' + emit.bounceScript : ''}/${emit.functionName || 'emit'}`;
+                inspTitle.textContent = `${emit.node} · ${emit.className}`;
                 btnFocusLabel.textContent = `Focus '${emit.node}' in ${emit.file.endsWith('.prefab') ? 'Prefab' : 'Scene'}`;
 
-                const scriptBase = emit.scriptFile ? emit.scriptFile.split('/').pop() : '';
                 inspPathRow.innerHTML = `
-                    <div class="space-y-1.5 leading-relaxed">
-                        <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200 font-medium">${emit.file}</span></div>
-                        <div><span class="text-slate-500 font-semibold">Nodes:</span> <span class="text-emerald-400 font-bold">${emit.node}</span></div>
-                        <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-sky-300 font-bold">${emit.className}</span> <span class="text-slate-400 text-[11px]">[${scriptBase}]</span></div>
-                        ${emit.scriptFile && emit.scriptFile !== 'Unknown' ? `<div class="text-[11px] text-slate-400"><span class="text-slate-500">Script File:</span> ${emit.scriptFile}</div>` : ''}
-                        ${emit.bounceScript ? `<div><span class="text-amber-400 font-semibold">Bounce Script:</span> <span class="text-amber-300 font-bold">${emit.bounceScript}</span></div>` : ''}
-                        ${emit.bounces ? `<div class="pl-2.5 border-l-2 border-amber-600/70 my-1 py-0.5 text-[11px]"><span class="text-amber-400 font-semibold">Bounces:</span> <span class="text-amber-200/90 break-all">${emit.bounces}</span></div>` : ''}
-                        <div class="pl-2.5 border-l-2 border-emerald-600/70 my-1 py-0.5"><span class="text-emerald-400 font-semibold">Function:</span> <span class="text-white font-bold">${emit.functionName || 'emit()'}</span></div>
-                        <div><span class="text-slate-500 font-semibold">Property:</span> <span class="text-slate-300 font-mono">${emit.property}</span></div>
-                        <div class="text-[11px] pt-1.5 border-t border-slate-700/60"><span class="text-emerald-400 font-semibold">⚡ Trigger:</span> <span class="text-white font-bold">${emit.trigger}</span>${emit.paramsPassed ? `<br/><span class="text-emerald-300 font-mono">Args: (${emit.paramsPassed})</span>` : ''}</div>
-                    </div>
+                    <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200">${emit.file}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Node:</span> <span class="text-emerald-400 font-bold">${emit.node}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-sky-300 font-bold">${emit.className}</span></div>
+                    <div><span class="text-slate-500 font-semibold">⚡ Trigger:</span> <span class="text-white font-bold">${emit.trigger}</span></div>
                 `;
 
-                // Connected Event Hubs List
-                if (connectedHubs.length > 0) {
-                    connectedHubsSection.classList.remove('hidden');
-                    connectedHubsCount.textContent = connectedHubs.length;
-                    connectedHubs.forEach(hub => {
-                        const hubCard = renderConnectedHubCard(hub);
-                        connectedHubsList.appendChild(hubCard);
-                    });
-                } else {
-                    connectedHubsSection.classList.add('hidden');
+                // Link to workflow if matching
+                const matchingWf = WORKFLOWS_DATA.find(w => w.entryPoint.includes(emit.className));
+                if (matchingWf) {
+                    btnTraceWf.classList.remove('hidden');
+                    btnTraceWf.onclick = () => {
+                        activeViewMode = "WORKFLOW";
+                        activeWorkflowId = matchingWf.id;
+                        updateViewModeTabs();
+                        populateSidebarList();
+                        renderWorkflowGraph(matchingWf);
+                    };
                 }
 
-                // Hide other emitters & params
                 emittersSection.classList.add('hidden');
                 paramsSection.classList.add('hidden');
 
-                // Collect & Group Listeners Across All Connected Hubs
-                listenersSection.classList.remove('hidden');
-                listenersTitleText.textContent = "Direct Downstream Listeners Invoked";
-
-                let totalInvokedListeners = 0;
-                connectedHubs.forEach(hub => {
-                    totalInvokedListeners += hub.listeners.length;
-                });
-                document.getElementById('insp-listeners-count').textContent = totalInvokedListeners;
-
-                if (totalInvokedListeners === 0) {
-                    listenersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No active listener handlers connected to the triggered event(s)</div>';
-                } else if (connectedHubs.length === 1) {
-                    connectedHubs[0].listeners.forEach(l => {
-                        listenersList.appendChild(renderListenerCard(l));
-                    });
-                } else {
-                    connectedHubs.forEach(hub => {
-                        if (hub.listeners.length > 0) {
-                            const groupHeader = document.createElement('div');
-                            groupHeader.className = "text-[11px] font-bold text-sky-400 flex items-center justify-between bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700/60 mt-2";
-                            groupHeader.innerHTML = `
-                                <span class="truncate">🔗 Via ${hub.name}</span>
-                                <span class="text-[10px] text-slate-400 font-mono font-normal">${hub.listeners.length} handlers</span>
-                            `;
-                            listenersList.appendChild(groupHeader);
-
-                            const groupContent = document.createElement('div');
-                            groupContent.className = "space-y-1.5 pl-1.5 border-l-2 border-sky-800/60";
-                            hub.listeners.forEach(l => {
-                                groupContent.appendChild(renderListenerCard(l));
-                            });
-                            listenersList.appendChild(groupContent);
-                        }
-                    });
+                if (connectedHubs.length > 0) {
+                    connectedHubsSection.classList.remove('hidden');
+                    document.getElementById('insp-hubs-count').textContent = connectedHubs.length;
+                    connectedHubs.forEach(hub => connectedHubsList.appendChild(renderConnectedHubCard(hub)));
                 }
             }
-            // ==========================================
-            // CASE 3: LISTENER NODE (Supports Multiple Hubs!)
-            // ==========================================
+            // Case: LISTENER
             else if (nodeType === 'LISTENER') {
                 const list = node.data.list;
-                currentInspectTarget = {
-                    file: list.file,
-                    node: list.node,
-                    className: list.className,
-                    scriptFile: list.scriptFile,
-                    type: 'listener'
-                };
-
-                inspBadge.textContent = 'LISTENER HANDLER';
+                currentInspectTarget = { file: list.file, node: list.node, className: list.className, scriptFile: list.scriptFile, type: 'listener' };
+                inspBadge.textContent = 'Listener Handler';
                 inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-purple-950 text-purple-400 border border-purple-800';
-
-                inspTitle.textContent = `${list.node}/${list.className}${list.bounceScript ? '/' + list.bounceScript : ''}/${list.functionName || 'handle'}`;
+                inspTitle.textContent = `${list.node} · ${list.className}`;
                 btnFocusLabel.textContent = `Focus '${list.node}' in ${list.file.endsWith('.prefab') ? 'Prefab' : 'Scene'}`;
 
-                const listScriptBase = list.scriptFile ? list.scriptFile.split('/').pop() : '';
                 inspPathRow.innerHTML = `
-                    <div class="space-y-1.5 leading-relaxed">
-                        <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200 font-medium">${list.file}</span></div>
-                        <div><span class="text-slate-500 font-semibold">Nodes:</span> <span class="text-purple-400 font-bold">${list.node}</span></div>
-                        <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-sky-300 font-bold">${list.className}</span> <span class="text-slate-400 text-[11px]">[${listScriptBase}]</span></div>
-                        ${list.scriptFile && list.scriptFile !== 'Unknown' ? `<div class="text-[11px] text-slate-400"><span class="text-slate-500">Script File:</span> ${list.scriptFile}</div>` : ''}
-                        ${list.bounceScript ? `<div><span class="text-amber-400 font-semibold">Bounce Script:</span> <span class="text-amber-300 font-bold">${list.bounceScript}</span></div>` : ''}
-                        ${list.bounces ? `<div class="pl-2.5 border-l-2 border-amber-600/70 my-1 py-0.5 text-[11px]"><span class="text-amber-400 font-semibold">Bounces:</span> <span class="text-amber-200/90 break-all">${list.bounces}</span></div>` : ''}
-                        <div class="pl-2.5 border-l-2 border-purple-600/70 my-1 py-0.5"><span class="text-purple-400 font-semibold">Function:</span> <span class="text-white font-bold">${list.functionName || list.boundMethod || list.property}()</span></div>
-                        ${list.boundMethod ? `<div><span class="text-slate-500 font-semibold">Bound Method:</span> <span class="text-purple-300 font-mono font-bold">${list.boundMethod}</span></div>` : ''}
-                        <div><span class="text-slate-500 font-semibold">Property:</span> <span class="text-slate-300 font-mono">${list.property}</span></div>
-                        ${list.methodSignature ? `<div class="text-[11px] text-purple-300 font-mono pt-1 border-t border-slate-700/60"><span class="text-slate-500">Signature:</span> (${list.methodSignature})</div>` : ''}
-                    </div>
+                    <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200">${list.file}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Node:</span> <span class="text-purple-400 font-bold">${list.node}</span></div>
+                    <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-sky-300 font-bold">${list.className}</span></div>
+                    <div><span class="text-slate-500 font-semibold">🎧 Handler:</span> <span class="text-white font-bold">${list.boundMethod || list.property}()</span></div>
                 `;
 
-                // Connected Event Hubs List
-                if (connectedHubs.length > 0) {
-                    connectedHubsSection.classList.remove('hidden');
-                    connectedHubsCount.textContent = connectedHubs.length;
-                    connectedHubs.forEach(hub => {
-                        const hubCard = renderConnectedHubCard(hub);
-                        connectedHubsList.appendChild(hubCard);
-                    });
-                } else {
-                    connectedHubsSection.classList.add('hidden');
-                }
-
-                // Hide other listeners & params
                 listenersSection.classList.add('hidden');
                 paramsSection.classList.add('hidden');
 
-                // Collect & Group Upstream Triggers Across All Connected Hubs
-                emittersSection.classList.remove('hidden');
-                emittersTitleText.textContent = "Upstream Triggers Calling This Handler";
-
-                let totalUpstreamEmitters = 0;
-                connectedHubs.forEach(hub => {
-                    totalUpstreamEmitters += hub.emitters.length;
-                });
-                document.getElementById('insp-emitters-count').textContent = totalUpstreamEmitters;
-
-                if (totalUpstreamEmitters === 0) {
-                    emittersList.innerHTML = '<div class="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded">No direct emitters bound to the subscribed event(s) yet</div>';
-                } else if (connectedHubs.length === 1) {
-                    connectedHubs[0].emitters.forEach(e => {
-                        emittersList.appendChild(renderEmitterCard(e));
-                    });
-                } else {
-                    connectedHubs.forEach(hub => {
-                        if (hub.emitters.length > 0) {
-                            const groupHeader = document.createElement('div');
-                            groupHeader.className = "text-[11px] font-bold text-sky-400 flex items-center justify-between bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700/60 mt-2";
-                            groupHeader.innerHTML = `
-                                <span class="truncate">🔗 Via ${hub.name}</span>
-                                <span class="text-[10px] text-slate-400 font-mono font-normal">${hub.emitters.length} triggers</span>
-                            `;
-                            emittersList.appendChild(groupHeader);
-
-                            const groupContent = document.createElement('div');
-                            groupContent.className = "space-y-1.5 pl-1.5 border-l-2 border-sky-800/60";
-                            hub.emitters.forEach(e => {
-                                groupContent.appendChild(renderEmitterCard(e));
-                            });
-                            emittersList.appendChild(groupContent);
-                        }
-                    });
-                }
-            }
-            // ==========================================
-            // CASE 4: PARAM HOLDER (Supports Multiple Hubs)
-            // ==========================================
-            else if (nodeType === 'PARAM_HOLDER') {
-                const param = node.data.param;
-                currentInspectTarget = {
-                    file: param.file,
-                    node: param.node,
-                    className: param.className,
-                    scriptFile: param.scriptFile,
-                    type: 'param_holder'
-                };
-
-                inspBadge.textContent = 'PARAM HOLDER';
-                inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-amber-950 text-amber-400 border border-amber-800';
-
-                inspTitle.textContent = `${param.node}/${param.className}${param.bounceScript ? '/' + param.bounceScript : ''}/${param.property}`;
-                btnFocusLabel.textContent = `Focus '${param.node}' in ${param.file.endsWith('.prefab') ? 'Prefab' : 'Scene'}`;
-
-                const paramScriptBase = param.scriptFile ? param.scriptFile.split('/').pop() : '';
-                inspPathRow.innerHTML = `
-                    <div class="space-y-1.5 leading-relaxed">
-                        <div><span class="text-slate-500 font-semibold">Asset:</span> <span class="text-slate-200 font-medium">${param.file}</span></div>
-                        <div><span class="text-slate-500 font-semibold">Nodes:</span> <span class="text-amber-400 font-bold">${param.node}</span></div>
-                        <div><span class="text-slate-500 font-semibold">Component:</span> <span class="text-sky-300 font-bold">${param.className}</span> <span class="text-slate-400 text-[11px]">[${paramScriptBase}]</span></div>
-                        ${param.scriptFile && param.scriptFile !== 'Unknown' ? `<div class="text-[11px] text-slate-400"><span class="text-slate-500">Script File:</span> ${param.scriptFile}</div>` : ''}
-                        ${param.bounceScript ? `<div><span class="text-amber-400 font-semibold">Bounce Script:</span> <span class="text-amber-300 font-bold">${param.bounceScript}</span></div>` : ''}
-                        ${param.bounces ? `<div class="pl-2.5 border-l-2 border-amber-600/70 my-1 py-0.5 text-[11px]"><span class="text-amber-400 font-semibold">Bounces:</span> <span class="text-amber-200/90 break-all">${param.bounces}</span></div>` : ''}
-                        <div class="pl-2.5 border-l-2 border-amber-600/70 my-1 py-0.5"><span class="text-amber-400 font-semibold">Property:</span> <span class="text-white font-bold">${param.property}</span></div>
-                    </div>
-                `;
-
                 if (connectedHubs.length > 0) {
                     connectedHubsSection.classList.remove('hidden');
-                    connectedHubsCount.textContent = connectedHubs.length;
-                    connectedHubs.forEach(hub => {
-                        const hubCard = renderConnectedHubCard(hub);
-                        connectedHubsList.appendChild(hubCard);
-                    });
-                } else {
-                    connectedHubsSection.classList.add('hidden');
+                    document.getElementById('insp-hubs-count').textContent = connectedHubs.length;
+                    connectedHubs.forEach(hub => connectedHubsList.appendChild(renderConnectedHubCard(hub)));
                 }
-
-                emittersSection.classList.add('hidden');
-                listenersSection.classList.add('hidden');
-                paramsSection.classList.add('hidden');
             }
         }
 
-        function renderConnectedHubCard(hub) {
-            const card = document.createElement('div');
-            card.className = "p-2.5 rounded-lg bg-sky-950/40 hover:bg-sky-900/60 active:bg-sky-950 border border-sky-800/60 hover:border-sky-400 flex items-center justify-between text-xs cursor-pointer transition-all group shadow-sm";
-            card.title = "Click or double-click to focus this Event Hub in the graph";
-            card.innerHTML = `
-                <div class="flex items-center gap-2 overflow-hidden">
-                    <span class="text-sky-400 font-mono font-bold text-xs">🔗</span>
-                    <div class="flex flex-col truncate">
-                        <span class="font-mono text-sky-200 font-semibold truncate group-hover:text-white">${hub.name}</span>
-                        <span class="text-[10px] text-slate-400 font-mono truncate">${hub.domainIcon || ''} ${hub.domain || ''}</span>
-                    </div>
-                </div>
-                <button class="px-2 py-0.5 rounded bg-sky-800 group-hover:bg-sky-600 text-[10px] text-sky-100 font-semibold shrink-0 transition-all">
-                    Focus
-                </button>
+        function inspectWorkflowStep(stepId, workflow) {
+            const step = workflow.steps.find(s => s.id === stepId);
+            if (!step) return;
+
+            document.getElementById('inspector-placeholder').classList.add('hidden');
+            document.getElementById('inspector-content').classList.remove('hidden');
+
+            const inspBadge = document.getElementById('insp-badge');
+            const inspDomain = document.getElementById('insp-domain');
+            const inspTitle = document.getElementById('insp-title');
+            const btnFocusLabel = document.getElementById('btn-focus-label');
+            const inspPathRow = document.getElementById('insp-path-row');
+
+            inspBadge.textContent = `Workflow Step ${step.stepIndex}`;
+            inspBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-indigo-950 text-indigo-300 border border-indigo-800';
+            inspDomain.textContent = workflow.domain;
+            inspTitle.textContent = step.title;
+            btnFocusLabel.textContent = "Focus Step Target";
+
+            inspPathRow.innerHTML = `
+                <div><span class="text-slate-500 font-semibold">Workflow:</span> <span class="text-white font-bold">${workflow.title}</span></div>
+                <div><span class="text-slate-500 font-semibold">Stage:</span> <span class="text-indigo-300 font-bold">${step.subtitle}</span></div>
+                ${step.detail ? `<div><span class="text-slate-500 font-semibold">Detail:</span> <span class="text-slate-300 font-mono text-[11px]">${step.detail}</span></div>` : ''}
+                <div><span class="text-slate-500 font-semibold">Next Stages:</span> <span class="text-sky-400 font-mono">${step.nextStepIds.length} branch(es)</span></div>
             `;
-            card.addEventListener('click', () => {
-                focusNodeInGraph('evt_' + hub.uuid, 1.5);
-            });
-            card.addEventListener('dblclick', (ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                focusNodeInGraph('evt_' + hub.uuid, 1.8);
-            });
-            return card;
-        }
-
-        function findMatchingGraphNode(type, item) {
-            if (!allNodes || allNodes.length === 0) return null;
-            return allNodes.find(n => {
-                if (!n.data || n.data.type !== type) return false;
-                const d = n.data.emit || n.data.list || n.data.param;
-                if (!d) return false;
-                if (d.file !== item.file || d.node !== item.node || d.className !== item.className) return false;
-                if (item.compId !== undefined && d.compId !== undefined) {
-                    return d.compId === item.compId;
-                }
-                if (type === 'EMITTER') return (d.trigger === item.trigger || d.functionName === item.functionName);
-                if (type === 'LISTENER') return (d.property === item.property || d.boundMethod === item.boundMethod);
-                if (type === 'PARAM_HOLDER') return (d.property === item.property);
-                return true;
-            });
-        }
-
-        function renderEmitterCard(e) {
-            const el = document.createElement('div');
-            el.className = "group p-3 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-800/60 hover:border-emerald-500/80 space-y-1.5 cursor-pointer transition-all shadow-sm";
-            el.title = "Double-click to focus on this Emitter node in the graph";
-            el.innerHTML = `
-                <div class="flex items-center justify-between text-xs">
-                    <span class="font-bold text-emerald-400 group-hover:text-emerald-300 flex items-center gap-1">
-                        ${e.node}
-                        <span class="text-[9px] font-normal text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity">(dbl-click to focus)</span>
-                    </span>
-                    <div class="flex items-center gap-1">
-                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-300 font-mono">${e.className}</span>
-                        <button class="mini-focus-btn p-1 rounded bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-all" title="Focus file in Cocos Creator">
-                            <i class="ph-bold ph-crosshair text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="text-xs text-slate-200 font-mono">⚡ ${e.trigger}</div>
-                <div class="text-[11px] text-slate-400 break-all">${e.file}</div>
-                ${e.paramsPassed ? `<div class="text-[10px] text-emerald-300 font-mono bg-emerald-950/80 p-1 rounded border border-emerald-800/40">Args: ${e.paramsPassed}</div>` : ''}
-            `;
-            
-            // Single click inspects if found, double click zooms in
-            el.addEventListener('dblclick', (ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                const matched = findMatchingGraphNode('EMITTER', e);
-                if (matched) {
-                    focusNodeInGraph(matched.id, 1.8);
-                } else {
-                    sendFocusTarget({ file: e.file, node: e.node, scriptFile: e.scriptFile, type: 'emitter' });
-                }
-            });
-
-            el.querySelector('.mini-focus-btn').addEventListener('click', (ev) => {
-                ev.stopPropagation();
-                sendFocusTarget({ file: e.file, node: e.node, scriptFile: e.scriptFile, type: 'emitter' });
-            });
-            return el;
-        }
-
-        function renderListenerCard(l) {
-            const el = document.createElement('div');
-            el.className = "group p-3 rounded-lg bg-purple-950/40 hover:bg-purple-900/50 border border-purple-800/60 hover:border-purple-500/80 space-y-1.5 cursor-pointer transition-all shadow-sm";
-            el.title = "Double-click to focus on this Listener node in the graph";
-                const rawMethod = l.boundMethod || l.property || 'handle';
-                const displayMethod = (rawMethod === '_actCloseApi' || rawMethod === '_actClose') ? 'close' : rawMethod.replace(/\(\)$/, '');
-                el.innerHTML = `
-                <div class="flex items-center justify-between text-xs">
-                    <span class="font-bold text-purple-300 group-hover:text-purple-200 flex items-center gap-1">
-                        \${l.node}
-                        <span class="text-[9px] font-normal text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">(dbl-click to focus)</span>
-                    </span>
-                    <div class="flex items-center gap-1">
-                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200 font-mono">\${l.className}</span>
-                        <button class="mini-focus-btn p-1 rounded bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white transition-all" title="Focus file in Cocos Creator">
-                            <i class="ph-bold ph-crosshair text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="text-xs text-slate-200 font-mono">🎧 \${displayMethod}() \${l.property ? \`<span class="text-[10px] text-purple-400">[\${l.property}]</span>\` : ''}</div>
-                <div class="text-[11px] text-slate-400 break-all">\${l.file}</div>
-                \${l.methodSignature ? \`<div class="text-[10px] text-purple-300 font-mono bg-purple-950/80 p-1 rounded border border-purple-800/40">Signature: (\${l.methodSignature})</div>\` : ''}
-            `;
-
-            // Single click inspects if found, double click zooms in
-            el.addEventListener('dblclick', (ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                const matched = findMatchingGraphNode('LISTENER', l);
-                if (matched) {
-                    focusNodeInGraph(matched.id, 1.8);
-                } else {
-                    sendFocusTarget({ file: l.file, node: l.node, scriptFile: l.scriptFile, type: 'listener' });
-                }
-            });
-
-            el.querySelector('.mini-focus-btn').addEventListener('click', (ev) => {
-                ev.stopPropagation();
-                sendFocusTarget({ file: l.file, node: l.node, scriptFile: l.scriptFile, type: 'listener' });
-            });
-            return el;
-        }
-
-        function renderParamCard(p) {
-            const el = document.createElement('div');
-            el.className = "group p-2.5 rounded-lg bg-amber-950/40 hover:bg-amber-900/50 border border-amber-800/60 hover:border-amber-500/80 text-xs space-y-1.5 cursor-pointer transition-all shadow-sm";
-            el.title = "Double-click to focus on this Param node in the graph";
-            el.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <span class="font-bold text-amber-300 group-hover:text-amber-200 flex items-center gap-1">
-                        ${p.node}
-                        <span class="text-[9px] font-normal text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">(dbl-click to focus)</span>
-                    </span>
-                    <div class="flex items-center gap-1">
-                        <span class="text-[10px] font-mono text-amber-400">${p.className}</span>
-                        <button class="mini-focus-btn p-1 rounded bg-slate-800 hover:bg-amber-600 text-slate-300 hover:text-white transition-all" title="Focus file in Cocos Creator">
-                            <i class="ph-bold ph-crosshair text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="text-slate-200 font-mono">Property: ${p.property}</div>
-                <div class="text-[11px] text-slate-400 break-all">${p.file}</div>
-            `;
-
-            el.addEventListener('dblclick', (ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                const matched = findMatchingGraphNode('PARAM_HOLDER', p);
-                if (matched) {
-                    focusNodeInGraph(matched.id, 1.8);
-                } else {
-                    sendFocusTarget({ file: p.file, node: p.node, scriptFile: p.scriptFile, type: 'param_holder' });
-                }
-            });
-
-            el.querySelector('.mini-focus-btn').addEventListener('click', (ev) => {
-                ev.stopPropagation();
-                sendFocusTarget({ file: p.file, node: p.node, scriptFile: p.scriptFile, type: 'param_holder' });
-            });
-            return el;
         }
 
         function clearInspector() {
@@ -1325,201 +1261,220 @@
             currentInspectTarget = null;
         }
 
-        function populateEventList() {
-            const listContainer = document.getElementById('event-list');
-            listContainer.innerHTML = "";
-
-            const allEntries = Object.entries(NETWORK_DATA).sort((a, b) => a[1].name.localeCompare(b[1].name));
-            const filteredEntries = allEntries.filter(([uuid, item]) => {
-                if (hideUnconnected) {
-                    const totalConnections = item.emitters.length + item.listeners.length + item.params.length;
-                    if (totalConnections === 0) return false;
-                }
-                return true;
+        function renderEmitterCard(e) {
+            const el = document.createElement('div');
+            el.className = 'p-2 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs hover:border-emerald-500/60 transition-all flex flex-col gap-1 cursor-pointer';
+            el.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-emerald-400">${e.className}</span>
+                    <span class="text-[10px] text-slate-400 font-mono">${e.file.split('/').pop()}</span>
+                </div>
+                <div class="text-[11px] text-slate-300 font-mono">⚡ ${e.trigger || e.functionName}</div>
+                <div class="text-[10px] text-slate-500 truncate">${e.node}</div>
+            `;
+            el.addEventListener('click', () => {
+                sendFocusTarget({ file: e.file, node: e.node, className: e.className, type: 'emitter' });
             });
-
-            document.getElementById('event-count').textContent = `${filteredEntries.length}/${allEntries.length}`;
-
-            filteredEntries.forEach(([uuid, item]) => {
-                const btn = document.createElement('button');
-                btn.className = "w-full text-left p-2.5 rounded-lg hover:bg-slate-800/80 transition-all border border-transparent hover:border-slate-700 flex flex-col gap-1 group";
-                btn.innerHTML = `
-                    <div class="flex items-center justify-between text-xs">
-                        <span class="font-semibold text-slate-200 group-hover:text-sky-400 truncate">${item.name}</span>
-                        <span class="text-[10px] text-slate-500">${item.domainIcon || ''}</span>
-                    </div>
-                    <div class="flex items-center gap-3 text-[10px] text-slate-400 font-mono">
-                        <span class="text-emerald-400">↑ ${item.emitters.length}</span>
-                        <span class="text-purple-400">↓ ${item.listeners.length}</span>
-                        ${item.params.length > 0 ? `<span class="text-amber-400">* ${item.params.length}</span>` : ''}
-                    </div>
-                `;
-
-                btn.addEventListener('click', () => {
-                    const targetNodeId = "evt_" + uuid;
-                    focusNodeInGraph(targetNodeId, 1.4);
-                });
-
-                listContainer.appendChild(btn);
-            });
+            return el;
         }
 
-        // Search Input Handler
-        const searchInput = document.getElementById('search-input');
-        const clearSearchBtn = document.getElementById('clear-search');
-        let searchDebounce = null;
+        function renderListenerCard(l) {
+            const el = document.createElement('div');
+            el.className = 'p-2 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs hover:border-purple-500/60 transition-all flex flex-col gap-1 cursor-pointer';
+            el.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-purple-400">${l.className}</span>
+                    <span class="text-[10px] text-slate-400 font-mono">${l.file.split('/').pop()}</span>
+                </div>
+                <div class="text-[11px] text-slate-300 font-mono">🎧 ${l.boundMethod || l.property}()</div>
+                <div class="text-[10px] text-slate-500 truncate">${l.node}</div>
+            `;
+            el.addEventListener('click', () => {
+                sendFocusTarget({ file: l.file, node: l.node, className: l.className, type: 'listener' });
+            });
+            return el;
+        }
 
-        searchInput.addEventListener('input', (e) => {
-            activeSearch = e.target.value.trim().toLowerCase();
-            if (activeSearch.length > 0) {
-                clearSearchBtn.classList.remove('hidden');
-            } else {
-                clearSearchBtn.classList.add('hidden');
-            }
+        function renderParamCard(p) {
+            const el = document.createElement('div');
+            el.className = 'p-2 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs hover:border-amber-500/60 transition-all flex flex-col gap-1 cursor-pointer';
+            el.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-amber-400">${p.className}</span>
+                    <span class="text-[10px] text-slate-400 font-mono">${p.file.split('/').pop()}</span>
+                </div>
+                <div class="text-[11px] text-slate-300 font-mono">📦 ${p.property}</div>
+                <div class="text-[10px] text-slate-500 truncate">${p.node}</div>
+            `;
+            el.addEventListener('click', () => {
+                sendFocusTarget({ file: p.file, node: p.node, className: p.className, type: 'param' });
+            });
+            return el;
+        }
 
-            clearTimeout(searchDebounce);
-            searchDebounce = setTimeout(() => {
-                initNetwork();
-            }, 250);
-        });
+        function renderConnectedHubCard(hub) {
+            const isPts = hub.assetType === 'pts';
+            const el = document.createElement('div');
+            el.className = `p-2 rounded-lg border text-xs cursor-pointer transition-all flex items-center justify-between ${isPts ? 'bg-purple-950/60 border-purple-800/60 text-purple-200 hover:border-purple-400' : 'bg-sky-950/60 border-sky-800/60 text-sky-200 hover:border-sky-400'}`;
+            el.innerHTML = `
+                <div class="flex items-center gap-1.5 truncate">
+                    <span>${isPts ? '💎' : '⚡'}</span>
+                    <span class="font-mono font-bold truncate">${hub.name}</span>
+                </div>
+                <span class="text-[10px] opacity-75">${hub.domain}</span>
+            `;
+            el.addEventListener('click', () => {
+                focusNodeInGraph("evt_" + hub.uuid, 1.4);
+            });
+            return el;
+        }
 
-        clearSearchBtn.addEventListener('click', () => {
-            searchInput.value = "";
-            activeSearch = "";
-            clearSearchBtn.classList.add('hidden');
-            initNetwork();
-        });
+        function updateViewModeTabs() {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            if (activeViewMode === "ALL") document.getElementById('mode-all').classList.add('active');
+            else if (activeViewMode === "JSON") document.getElementById('mode-json').classList.add('active');
+            else if (activeViewMode === "PTS") document.getElementById('mode-pts').classList.add('active');
+            else if (activeViewMode === "WORKFLOW") document.getElementById('mode-workflow').classList.add('active');
+        }
 
-        // Hide Unconnected / Orphan Events Toggle
-        const btnToggleUnconnected = document.getElementById('btn-toggle-unconnected');
-        const unconnectedIcon = document.getElementById('unconnected-icon');
-        btnToggleUnconnected.addEventListener('click', () => {
-            hideUnconnected = !hideUnconnected;
-            if (hideUnconnected) {
-                btnToggleUnconnected.className = 'px-2.5 py-1.5 rounded-lg bg-sky-950 text-sky-300 font-semibold border border-sky-600 shadow-md transition-all flex items-center gap-1.5 text-xs';
-                unconnectedIcon.className = 'ph-bold ph-funnel text-sm text-sky-400';
-            } else {
-                btnToggleUnconnected.className = 'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-1.5 text-xs';
-                unconnectedIcon.className = 'ph-bold ph-funnel text-sm text-slate-400';
-            }
+        // Setup Event Listeners
+        window.addEventListener('DOMContentLoaded', () => {
+            initScopeFiles();
             renderDynamicDomainFilters();
-            populateEventList();
+            populateSidebarList();
             initNetwork();
-        });
 
-        // Refresh Network Button Action
-        document.getElementById('btn-refresh-network').addEventListener('click', () => {
-            const icon = document.getElementById('refresh-icon');
-            if (icon) icon.classList.add('animate-spin');
-
-            window.parent.postMessage({ type: 'PTS_NEXUS_REFRESH_NETWORK' }, '*');
-
-            setTimeout(() => {
-                if (icon) icon.classList.remove('animate-spin');
+            // Mode Tabs
+            document.getElementById('mode-all').addEventListener('click', () => {
+                activeViewMode = "ALL";
+                updateViewModeTabs();
                 renderDynamicDomainFilters();
-                populateEventList();
+                populateSidebarList();
                 initNetwork();
-            }, 800);
-        });
-
-        // Export HTML Button Action
-        document.getElementById('btn-export-html').addEventListener('click', () => {
-            window.parent.postMessage({ type: 'PTS_NEXUS_EXPORT_HTML' }, '*');
-
-            try {
-                const fullHtml = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
-                const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
-                const downloadUrl = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = 'json_event_network.html';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(downloadUrl);
-            } catch (e) {}
-        });
-
-        // Focus in Cocos Button
-        document.getElementById('btn-focus-in-cocos').addEventListener('click', () => {
-            if (currentInspectTarget) {
-                sendFocusTarget(currentInspectTarget);
-            }
-        });
-
-        // Toolbar Buttons
-        function zoomBy(factor) {
-            if (!visNetwork) return;
-            const currentScale = visNetwork.getScale();
-            const targetScale = Math.max(0.1, Math.min(4.0, currentScale * factor));
-            visNetwork.moveTo({
-                scale: targetScale,
-                animation: { duration: 200, easingFunction: 'easeInOutQuad' }
             });
-        }
-
-        document.getElementById('btn-toggle-physics').addEventListener('click', () => togglePhysics());
-        document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.3));
-        document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(0.75));
-
-        document.getElementById('btn-re-layout').addEventListener('click', () => {
-            if (visNetwork) {
-                togglePhysics(true);
-                visNetwork.stabilize();
-            }
-        });
-
-        document.getElementById('btn-fit-zoom').addEventListener('click', () => {
-            if (visNetwork) visNetwork.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
-        });
-
-        const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
-        const leftSidebar = document.getElementById('left-sidebar');
-        toggleSidebarBtn.addEventListener('click', () => {
-            leftSidebar.classList.toggle('-ml-80');
-        });
-
-        // Keybindings: `+` (zoom in), `-` (zoom out), `Space` (pause physics), `R` (refresh)
-        window.addEventListener('keydown', (e) => {
-            if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
-                return;
-            }
-
-            if (!visNetwork) return;
-
-            if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
-                e.preventDefault();
-                zoomBy(1.3);
-            } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
-                e.preventDefault();
-                zoomBy(0.75);
-            } else if (e.code === 'Space') {
-                e.preventDefault();
-                togglePhysics();
-            } else if ((e.key === 'r' || e.key === 'R') && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                document.getElementById('btn-refresh-network').click();
-            } else if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                visNetwork.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
-            }
-        });
-
-        function startApp() {
-            try {
+            document.getElementById('mode-json').addEventListener('click', () => {
+                activeViewMode = "JSON";
+                updateViewModeTabs();
                 renderDynamicDomainFilters();
-                populateEventList();
+                populateSidebarList();
                 initNetwork();
-            } catch (err) {
-                console.error("Error starting Event Nexus Visualizer:", err);
-            }
-        }
+            });
+            document.getElementById('mode-pts').addEventListener('click', () => {
+                activeViewMode = "PTS";
+                updateViewModeTabs();
+                renderDynamicDomainFilters();
+                populateSidebarList();
+                initNetwork();
+            });
+            document.getElementById('mode-workflow').addEventListener('click', () => {
+                activeViewMode = "WORKFLOW";
+                updateViewModeTabs();
+                renderDynamicDomainFilters();
+                populateSidebarList();
+                initNetwork();
+            });
 
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', startApp);
-        } else {
-            startApp();
-        }
+            // Neighborhood Focus Toggle
+            const btnNeighborhood = document.getElementById('btn-toggle-neighborhood');
+            btnNeighborhood.addEventListener('click', () => {
+                isNeighborhoodMode = !isNeighborhoodMode;
+                document.getElementById('neighborhood-label').textContent = isNeighborhoodMode ? 'Focus (60fps)' : 'Full Graph';
+                btnNeighborhood.className = isNeighborhoodMode 
+                    ? 'px-2.5 py-1.5 rounded-lg bg-sky-950/80 border border-sky-700/60 text-sky-300 hover:text-white transition-all flex items-center gap-1.5 font-medium shadow-sm'
+                    : 'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5 font-medium';
+                initNetwork();
+            });
+
+            // Component Aggregation Toggle
+            const btnAggregate = document.getElementById('btn-toggle-aggregate');
+            btnAggregate.addEventListener('click', () => {
+                isAggregateMode = !isAggregateMode;
+                document.getElementById('aggregate-label').textContent = isAggregateMode ? 'Detailed' : 'Compact';
+                btnAggregate.className = isAggregateMode
+                    ? 'px-2.5 py-1.5 rounded-lg bg-amber-950/80 border border-amber-700/60 text-amber-300 hover:text-white transition-all flex items-center gap-1.5'
+                    : 'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5';
+                initNetwork();
+            });
+
+            // Role Toggles
+            const btnEmit = document.getElementById('btn-toggle-emitter');
+            btnEmit.addEventListener('click', () => {
+                showEmitters = !showEmitters;
+                btnEmit.classList.toggle('active', showEmitters);
+                initNetwork();
+            });
+
+            const btnList = document.getElementById('btn-toggle-listener');
+            btnList.addEventListener('click', () => {
+                showListeners = !showListeners;
+                btnList.classList.toggle('active', showListeners);
+                initNetwork();
+            });
+
+            const btnParam = document.getElementById('btn-toggle-param');
+            btnParam.addEventListener('click', () => {
+                showParams = !showParams;
+                btnParam.classList.toggle('active', showParams);
+                initNetwork();
+            });
+
+            // Unconnected Toggle
+            document.getElementById('btn-toggle-unconnected').addEventListener('click', () => {
+                hideUnconnected = !hideUnconnected;
+                document.getElementById('btn-toggle-unconnected').classList.toggle('text-sky-400', hideUnconnected);
+                renderDynamicDomainFilters();
+                populateSidebarList();
+                initNetwork();
+            });
+
+            // Search
+            const searchInput = document.getElementById('search-input');
+            const clearSearch = document.getElementById('clear-search');
+            searchInput.addEventListener('input', (e) => {
+                activeSearch = e.target.value.trim().toLowerCase();
+                clearSearch.classList.toggle('hidden', activeSearch.length === 0);
+                populateSidebarList();
+                initNetwork();
+            });
+            clearSearch.addEventListener('click', () => {
+                searchInput.value = '';
+                activeSearch = '';
+                clearSearch.classList.add('hidden');
+                populateSidebarList();
+                initNetwork();
+            });
+
+            // Zoom & Layout Buttons
+            document.getElementById('btn-toggle-physics').addEventListener('click', () => togglePhysics());
+            document.getElementById('btn-zoom-in').addEventListener('click', () => {
+                if (visNetwork) visNetwork.moveTo({ scale: visNetwork.getScale() * 1.25 });
+            });
+            document.getElementById('btn-zoom-out').addEventListener('click', () => {
+                if (visNetwork) visNetwork.moveTo({ scale: visNetwork.getScale() * 0.8 });
+            });
+            document.getElementById('btn-fit-zoom').addEventListener('click', () => {
+                if (visNetwork) visNetwork.fit({ animation: { duration: 400 } });
+            });
+
+            // Focus in Cocos Button
+            document.getElementById('btn-focus-in-cocos').addEventListener('click', () => {
+                if (currentInspectTarget) sendFocusTarget(currentInspectTarget);
+            });
+
+            // Sidebar Toggle
+            const sidebar = document.getElementById('left-sidebar');
+            document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
+                sidebar.classList.toggle('-ml-80');
+            });
+
+            // Refresh & Export
+            document.getElementById('btn-refresh-network').addEventListener('click', () => {
+                window.parent.postMessage({ type: 'PTS_NEXUS_RELOAD' }, '*');
+            });
+            document.getElementById('btn-export-html').addEventListener('click', () => {
+                window.parent.postMessage({ type: 'PTS_NEXUS_EXPORT_HTML' }, '*');
+            });
+        });
     </script>
 </body>
 </html>

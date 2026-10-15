@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { CocosUuidUtils } from './CocosUuidUtils';
 import { TypeRegistry } from './TypeRegistry';
+import { FunctionWorkflowAnalyzer, WorkflowPipeline } from './FunctionWorkflowAnalyzer';
 
 export interface GraphEmitter {
     file: string;
@@ -49,6 +50,9 @@ export interface EventNetworkCatalogItem {
     name: string;
     domain: string;
     domainIcon: string;
+    assetType?: 'json' | 'pts';
+    ptsType?: string;
+    ptsValue?: any;
     emitters: GraphEmitter[];
     listeners: GraphListener[];
     params: GraphParam[];
@@ -56,6 +60,7 @@ export interface EventNetworkCatalogItem {
 
 export interface EventNetworkGraph {
     catalog: Record<string, EventNetworkCatalogItem>;
+    workflows?: WorkflowPipeline[];
 }
 
 export class NexusGraphBuilder {
@@ -137,9 +142,38 @@ export class NexusGraphBuilder {
         };
 
         for (const [uuid, p] of Object.entries(uuidToPath)) {
-            if (p.endsWith('.json') && !p.includes('package.json') && !p.includes('tsconfig')) {
+            const isJson = p.endsWith('.json') && !p.includes('package.json') && !p.includes('tsconfig');
+            const isPts = p.endsWith('.pts');
+
+            if (isJson || isPts) {
                 const name = path.basename(p);
-                const { domain, icon: domainIcon } = getDomainMeta(p);
+                let { domain, icon: domainIcon } = getDomainMeta(p);
+                const assetType: 'json' | 'pts' = isPts ? 'pts' : 'json';
+                let ptsType: string | undefined = undefined;
+                let ptsValue: any = undefined;
+
+                if (isPts) {
+                    domainIcon = '💎';
+                    try {
+                        const fullPtsPath = path.join(projectPath, p);
+                        if (fs.existsSync(fullPtsPath)) {
+                            const rawPts = await fs.promises.readFile(fullPtsPath, 'utf8');
+                            const ptsJson = JSON.parse(rawPts);
+                            ptsType = ptsJson.__type__ || 'pTSAsset';
+                            ptsValue = ptsJson.__value__;
+                            if (ptsType.includes('State') || ptsType.includes('Machine')) {
+                                domainIcon = '🧬';
+                                domain = 'State Machine';
+                            } else if (ptsType.includes('Number') || ptsType.includes('String') || ptsType.includes('Data') || ptsType.includes('Boolean')) {
+                                domainIcon = '💎';
+                                domain = 'Reactive Data';
+                            } else if (ptsType.includes('Config')) {
+                                domainIcon = '⚙️';
+                                domain = 'Asset Config';
+                            }
+                        }
+                    } catch {}
+                }
 
                 catalog[uuid] = {
                     uuid,
@@ -147,6 +181,9 @@ export class NexusGraphBuilder {
                     name,
                     domain,
                     domainIcon,
+                    assetType,
+                    ptsType,
+                    ptsValue,
                     emitters: [],
                     listeners: [],
                     params: []
@@ -390,6 +427,31 @@ export class NexusGraphBuilder {
                                     }
                                 }
 
+                                // 2.5 Check pTSAsset specific structures: pTSAsset_Emitter, pTSAsset_Handler
+                                if (!isListener && !isEmitter && catalog[juuid].assetType === 'pts') {
+                                    const isPtsEmitter = chainSteps.some(c => c.type === 'pTSAsset_Emitter' || c.key.includes('emmiter') || c.key.includes('emitter'));
+                                    const isPtsHandler = chainSteps.some(c => c.type === 'pTSAsset_Handler' || c.key.includes('handler'));
+
+                                    if (isPtsEmitter) {
+                                        isEmitter = true;
+                                        functionName = 'emit()';
+                                        trigger = `${className}.emit()`;
+                                        bounceScript = bounceScript || 'pTSAsset_Emitter';
+                                    } else if (isPtsHandler) {
+                                        isListener = true;
+                                        boundMethod = 'handle';
+                                        const handlerObj = chainSteps.find(c => c.type === 'pTSAsset_Handler')?.obj;
+                                        if (handlerObj && handlerObj.listener) {
+                                            boundMethod = handlerObj.listener;
+                                        }
+                                        functionName = `${boundMethod}()`;
+                                        bounceScript = bounceScript || 'pTSAsset_Handler';
+                                    } else {
+                                        isParam = true;
+                                        functionName = rootProp;
+                                    }
+                                }
+
                                 // 3. Framework specific composite hookers (e.g. Config_Global)
                                 if (!isListener && !isEmitter && !isParam) {
                                     if (className.includes('Config_Global') || className.includes('GlobalTTF')) {
@@ -488,6 +550,7 @@ export class NexusGraphBuilder {
             }
         }
 
-        return { catalog };
+        const workflows = FunctionWorkflowAnalyzer.buildPipelines(catalog);
+        return { catalog, workflows };
     }
 }
